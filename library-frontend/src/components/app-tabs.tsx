@@ -27,6 +27,15 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
+
+      {/* Notifications tab — route group at (tabs)/notifications/ */}
+      <NativeTabs.Trigger name="(tabs)/notifications">
+        <NativeTabs.Trigger.Label>Alerts</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/home.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
