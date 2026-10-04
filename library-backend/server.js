@@ -11,6 +11,15 @@ app.use(express.json());
 app.use('/api/admin/books', require('./routes/admin/books'));
 app.use('/api/admin/categories', require('./routes/admin/categories'));
 
+app.use('/api/admin/auth', require('./routes/admin/auth'));
+app.use('/api/admin/books', require('./routes/admin/books'));
+app.use('/api/admin/categories', require('./routes/admin/categories'));
+app.use('/api/admin/users', require('./routes/admin/users'));
+app.use('/api/admin/reservations', require('./routes/admin/reservations'));
+app.use('/api/admin/seats', require('./routes/admin/seats'));
+app.use('/api/admin/announcements', require('./routes/admin/announcements'));
+app.use('/api/admin/stats', require('./routes/admin/stats'));
+
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected successfully'))
