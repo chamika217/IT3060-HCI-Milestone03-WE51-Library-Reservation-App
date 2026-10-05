@@ -1,30 +1,16 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Badge, Button, Card, Icon, Message, Screen, Section, u } from '@/components/library/ui';
+import BookCover from '@/components/library/BookCover';
+import { palette as c } from '@/constants/design-system';
+import { useLibrary } from '@/state/library';
 import { booksApi } from '@/services/books-api';
-import type { Book, Reservation } from '@/types/book';
-import { styles as s } from '@/components/books/styles';
-import PickupForm from '@/components/books/PickupForm';
-export default function BookDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const [book, setBook] = useState<Book | null>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
-  const [confirmation, setConfirmation] = useState<Reservation | null>(null);
-  useFocusEffect(useCallback(() => {
-    let active = true; setLoading(true); setError(''); setConfirmation(null);
-    booksApi.detail(id).then(data => { if (active) setBook(data.book); }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Cannot load book.'); }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-    // revision deliberately restarts loading when the user chooses Retry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, revision]));
-  return <ScrollView style={s.page} contentContainerStyle={s.content}>
-    <Link href="/books" style={s.link}>Back to catalogue</Link>
-    {loading ? <ActivityIndicator /> : error ? <><Text style={s.error}>{error}</Text><Pressable style={s.button} onPress={() => setRevision(v => v + 1)}><Text style={s.buttonText}>Retry</Text></Pressable></> : book ? <>
-      <View style={s.card}><View style={s.row}><View style={[s.cover, { backgroundColor: book.color }]}><Text style={s.coverLetter}>{book.title[0]}</Text></View><View style={s.grow}><Text style={s.title}>{book.title}</Text><Text style={s.copy}>{book.author}</Text></View></View>
-        <Text style={s.copy}>{book.copies} copies available</Text><Text style={s.copy}>Category: {book.category}</Text><Text style={s.copy}>ISBN: {book.isbn || 'Not recorded'}</Text><Text style={s.heading}>About this book</Text><Text style={s.copy}>{book.description}</Text></View>
-      {confirmation ? <View style={s.card}><Text style={s.heading}>Reservation confirmed</Text><Text style={s.copy}>{confirmation.pickupDate} · {confirmation.pickupWindow}</Text><Text style={s.title}>{confirmation.pickupCode}</Text><Link href="/books/reservations" style={s.link}>View my reservations</Link></View> : <PickupForm key={book.id} book={book} onReserved={r => { setConfirmation(r); setBook(r); }} />}
-    </> : null}
-  </ScrollView>;
+import type { Book } from '@/types/book';
+export default function Details() {
+  const { id } = useLocalSearchParams<{ id: string }>(); const library = useLibrary(); const ref = useRef(library); useEffect(() => { ref.current = library; }, [library]);
+  const [book, setBook] = useState<Book | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(true);
+  const load = useCallback(async () => { setLoading(true); setError(''); try { const next = ref.current.demo ? ref.current.books.find(b => b.id === id) : (await booksApi.detail(id)).book; if (!next) throw new Error('Book not found.'); setBook(next); } catch (e) { setError(e instanceof Error ? e.message : 'Cannot load book.'); } finally { setLoading(false); } }, [id]);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  return <Screen title="Book details" back="/books" tab="search" demo={library.demo}>{loading ? <ActivityIndicator /> : error ? <><Message error>{error}</Message><Button outline onPress={load}>Retry</Button></> : book && <><View style={[u.row, { alignItems: 'flex-start' }]}><BookCover book={book} large /><View style={{ flex: 1, gap: 10 }}><Badge tone={book.available ? 'success' : 'warning'}>{book.available ? book.copies + ' COPIES AVAILABLE' : 'CURRENTLY UNAVAILABLE'}</Badge><Text style={u.title}>{book.title}</Text><Text style={u.body}>{book.author}</Text><Text style={u.caption}>{book.category}</Text></View></View><Card><Section title="Synopsis & overview" /><Text style={u.body}>{book.description}</Text><View style={u.divider} /><Text style={u.small}>ISBN: {book.isbn || 'Not recorded'}</Text><Text style={u.small}>Category: {book.category}</Text></Card><Section title="Shelf guide" /><Card><View style={u.between}><Icon name="map-pin" /><Badge tone="info">{library.demo ? 'SAMPLE LAYOUT' : 'LOCATION GUIDE'}</Badge></View><Text style={u.heading}>{library.demo ? 'Floor 2 · Main stacks' : 'Ask at the circulation desk'}</Text>{library.demo ? <><View style={{ flexDirection: 'row', gap: 8 }}>{['A01', 'A02', 'A03', 'A04'].map((aisle, i) => <View key={aisle} style={{ flex: 1, backgroundColor: i === 0 ? c.primarySoft : c.background, borderWidth: 1, borderColor: i === 0 ? c.primary : c.border, height: 88, borderRadius: 8, alignItems: 'center', justifyContent: 'center', gap: 8 }}><Text style={u.caption}>AISLE</Text><Text style={[u.label, { color: i === 0 ? c.primary : c.secondary }]}>{aisle}</Text>{i === 0 && <Icon name="map-pin" size={14} />}</View>)}</View><Text style={u.caption}>Illustrative shelf map for the high-fidelity preview.</Text></> : <Text style={u.body}>A verified shelf location has not been added for this title yet.</Text>}</Card><Card><Section title="Before you reserve" /><Text style={u.body}>Choose a pickup date within the next seven days. Your confirmation includes the pickup window and collection code.</Text><Text style={u.small}>For loan periods and late-return rules, check with your library desk.</Text></Card><Button disabled={!book.available} icon="bookmark" onPress={() => router.push({ pathname: '/books/reserve', params: { id: book.id } })}>{book.available ? 'Reserve this book' : 'Currently unavailable'}</Button></>}</Screen>;
 }

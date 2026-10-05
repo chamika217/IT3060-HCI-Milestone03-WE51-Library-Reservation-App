@@ -1,14 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
-
-export default function NotificationsScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Notifications</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 20, fontWeight: 'bold' },
-});
+import { Text } from 'react-native';
+import { Card, Icon, Screen, u } from '@/components/library/ui';
+import { useLibrary } from '@/state/library';
+export default function Notifications() { const { demo } = useLibrary(); return <Screen title="Notifications" tab="alerts" demo={demo}><Text style={u.title}>You’re all caught up.</Text><Card style={{ alignItems: 'center', paddingVertical: 32 }}><Icon name="bell" size={32} /><Text style={u.heading}>No notifications</Text><Text style={u.body}>Check My reservations for your pickup details.</Text></Card></Screen>; }

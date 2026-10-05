@@ -1,100 +1,14 @@
-import { Link } from 'expo-router';
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
+import { Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Button, Card, Icon, Screen, u } from '@/components/library/ui';
+import { palette as c } from '@/constants/design-system';
+import { useLibrary } from '@/state/library';
+export default function Onboarding() {
+  const { startDemo } = useLibrary();
+  return <Screen title="LibraReserve" subtitle="YOUR CAMPUS. YOUR LIBRARY.">
+    <View style={{ backgroundColor: c.primarySoft, borderRadius: 24, padding: 32, gap: 24, alignItems: 'center', marginTop: 8 }}><View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, height: 110 }}>{[74, 105, 86, 64].map((height, i) => <View key={i} style={{ height, width: 38, borderRadius: 6, backgroundColor: i === 1 ? c.primary : c.card, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: i === 3 ? '10deg' : '0deg' }] }}><View style={{ height: 3, width: 20, backgroundColor: i === 1 ? c.white : c.primary, borderRadius: 2 }} /></View>)}</View><Text style={[u.eyebrow, { color: c.primary }]}>A smarter way to borrow</Text></View>
+    <View style={{ gap: 12, alignItems: 'center' }}><Text style={[u.display, { textAlign: 'center' }]}>Your next chapter, without the wait.</Text><Text style={[u.body, { textAlign: 'center' }]}>Find a book you love. Reserve a copy. Make more time for what matters.</Text></View>
+    {([{ icon: 'search', title: 'Find it in seconds', copy: 'Search titles, authors and subjects in one place.' }, { icon: 'map-pin', title: 'Know before you go', copy: 'Check availability and explore book details.' }, { icon: 'bookmark', title: 'Reserve with confidence', copy: 'Choose a pickup time that works for you.' }] as const).map((item, i) => <Card key={item.title}><View style={u.row}><View style={{ padding: 12, backgroundColor: c.primarySoft, borderRadius: 12 }}><Icon name={item.icon} /></View><View style={{ flex: 1, gap: 4 }}><Text style={[u.heading, { fontSize: 14 }]}>{item.title}</Text><Text style={u.small}>{item.copy}</Text></View><Text style={u.caption}>0{i + 1}</Text></View></Card>)}
+    <Button icon="arrow-right" onPress={() => router.push('/login')}>Get started</Button><Button outline onPress={() => { startDemo(); router.replace('/home'); }}>Explore the demo</Button><Text style={[u.caption, { textAlign: 'center' }]}>Built for curious minds. Designed for campus life.</Text>
+  </Screen>;
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <Link href="/books" style={{ color: "#2864F0", fontSize: 18, padding: 16 }}>Search library books</Link>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});

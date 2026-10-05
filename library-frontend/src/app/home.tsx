@@ -1,0 +1,13 @@
+import { Pressable, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Badge, Card, Icon, Screen, Section, u } from '@/components/library/ui';
+import { palette as c } from '@/constants/design-system';
+import { useLibrary } from '@/state/library';
+import BookResult from '@/components/library/BookResult';
+export default function Home() {
+  const { demo, name, books, holds } = useLibrary();
+  return <Screen title="LibraReserve" subtitle="CAMPUS LIBRARY PORTAL" tab="home" demo={demo}><View style={{ backgroundColor: c.primary, borderRadius: 20, padding: 24, gap: 14 }}><View style={u.between}><Text style={[u.eyebrow, { color: 'white' }]}>Welcome back</Text><Icon name="sun" color={c.white} /></View><Text style={[u.title, { color: c.white }]}>{demo ? name : 'Hello, reader.'}</Text><Text style={[u.body, { color: c.white }]}>A little curiosity can take you a long way.</Text><Pressable onPress={() => router.push('/books')} style={{ backgroundColor: c.card, borderRadius: 12, padding: 14, flexDirection: 'row', gap: 10 }}><Icon name="search" size={18} /><Text style={u.small}>What would you like to read?</Text></Pressable></View>
+    <Section title="Your library, at a glance" /><View style={u.row}><Card style={{ flex: 1 }}><Text style={u.title}>{demo ? books.length : '—'}</Text><Text style={u.small}>Catalogue titles</Text></Card><Card style={{ flex: 1 }}><Text style={u.title}>{demo ? holds.length : '—'}</Text><Text style={u.small}>Your active holds</Text></Card></View>
+    <Section title="Quick services" /><View style={u.row}>{([{ title: 'Search books', copy: 'Find your next read', icon: 'search', route: '/books' }, { title: 'My holds', copy: 'Pickup information', icon: 'archive', route: '/books/reservations' }] as const).map(item => <Pressable key={item.title} onPress={() => router.push(item.route)} style={[u.card, { flex: 1, backgroundColor: c.primarySoft, borderColor: c.primarySoft }]}><Icon name={item.icon} /><Text style={[u.heading, { fontSize: 14 }]}>{item.title}</Text><Text style={u.small}>{item.copy}</Text></Pressable>)}</View>
+    <Section title={demo ? 'Discover the collection' : 'Explore your library'} action="See all" onPress={() => router.push('/books')} />{demo ? books.slice(0, 3).map(book => <BookResult key={book.id} book={book} />) : <Card><Text style={u.body}>Open the catalogue to check the latest titles and availability.</Text></Card>}<Card><View style={u.between}><Icon name="help-circle" /><Badge tone="info">LIBRARY SUPPORT</Badge></View><Text style={u.heading}>Need a hand?</Text><Text style={u.body}>Visit the circulation desk for help with borrowing, account access or locating a title.</Text></Card></Screen>;
+}

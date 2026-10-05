@@ -1,22 +1,13 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
-import { Link, router } from 'expo-router';
-import BookCard from '@/components/books/BookCard';
-import { styles as s } from '@/components/books/styles';
-import { useBooks } from '@/hooks/use-books';
-export default function SearchBooksScreen() {
-  const { books, loading, error, retry } = useBooks();
-  const [query, setQuery] = useState('');
-  const [availableOnly, setAvailableOnly] = useState(false);
-  const results = useMemo(() => books.filter(b => (!availableOnly || b.available) && `${b.title} ${b.author} ${b.isbn} ${b.category}`.toLowerCase().includes(query.trim().toLowerCase())), [books, query, availableOnly]);
-  return <View style={s.page}><FlatList data={error ? [] : results} keyExtractor={item => item.id} contentContainerStyle={s.content}
-    ListHeaderComponent={<View style={{ gap: 14 }}><Text style={s.title}>Find your next book</Text><Text style={s.copy}>Search the library by title, author, ISBN or category.</Text>
-      <Link href="/books/reservations" style={s.link}>My reservations</Link>
-      <TextInput accessibilityLabel="Search books" value={query} onChangeText={setQuery} placeholder="Search books" placeholderTextColor="#66728C" style={s.input} />
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: availableOnly }} onPress={() => setAvailableOnly(!availableOnly)} style={[s.chip, availableOnly && s.selected]}><Text style={s.copy}>{availableOnly ? '✓ ' : ''}Available books only</Text></Pressable>
-      {loading ? <ActivityIndicator accessibilityLabel="Loading books" /> : <Text style={s.copy}>{results.length} of {books.length} books</Text>}
-      {error ? <><Text accessibilityRole="alert" style={s.error}>{error}</Text><Pressable onPress={retry} style={s.button}><Text style={s.buttonText}>Retry</Text></Pressable></> : null}
-    </View>}
-    ListEmptyComponent={!loading && !error ? <Text style={s.copy}>No books found. Try another search or clear the filter.</Text> : null}
-    renderItem={({ item }) => <BookCard book={item} onPress={() => router.push({ pathname: '/books/[id]', params: { id: item.id } })} />} /></View>;
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Button, Field, Icon, Message, Screen, Section, u } from '@/components/library/ui';
+import { useLibrary, useFilteredBooks } from '@/state/library';
+import BookResult from '@/components/library/BookResult';
+export default function Results() {
+  const library = useLibrary(); const { demo, query, setQuery, filters } = library; const ref = useRef(library); useEffect(() => { ref.current = library; }, [library]);
+  const results = useFilteredBooks(); const [loading, setLoading] = useState(false), [error, setError] = useState('');
+  const load = useCallback(async () => { setLoading(true); setError(''); try { await ref.current.list(); } catch { setError('Cannot load the catalogue. Check the API connection and try again.'); } finally { setLoading(false); } }, []);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  return <Screen title="Search catalogue" subtitle="FIND YOUR NEXT CHAPTER" tab="search" demo={demo} action={<Pressable accessibilityRole="button" accessibilityLabel="Open filters" onPress={() => router.push('/books/filters')} style={u.iconButton}><Icon name="sliders" /></Pressable>}><Text style={u.title}>A book for every curiosity.</Text><Field label="SEARCH THE CATALOGUE" value={query} onChangeText={setQuery} placeholder="Title, author, ISBN or category" /><View style={u.between}><Text style={u.small}>{results.length} titles{query ? ' for “' + query + '”' : ' to explore'}</Text><Pressable onPress={() => router.push('/books/filters')}><Text style={u.link}>Filters · {(filters.available ? 1 : 0) + (filters.category !== 'All' ? 1 : 0)}</Text></Pressable></View>{loading && <ActivityIndicator />}{!!error && <><Message error>{error}</Message><Button outline onPress={load}>Retry</Button></>}{!error && <><Section title="Search results" />{results.map(book => <BookResult key={book.id} book={book} />)}{!loading && results.length === 0 && <View style={[u.card, { alignItems: 'center', paddingVertical: 32 }]}><Icon name="search" size={32} /><Text style={u.heading}>No matching books</Text><Text style={u.body}>Try another title or clear your filters.</Text><Button outline onPress={() => { setQuery(''); library.setFilters({ category: 'All', available: false }); }}>Clear search</Button></View>}</>}</Screen>;
 }

@@ -1,34 +1,16 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { Link, useFocusEffect } from 'expo-router';
-import { booksApi } from '@/services/books-api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Badge, Button, Card, Icon, Message, Screen, Section, u } from '@/components/library/ui';
+import { palette as c } from '@/constants/design-system';
+import { useLibrary } from '@/state/library';
 import type { Reservation } from '@/types/book';
-import { styles as s } from '@/components/books/styles';
-export default function ReservationsScreen() {
-  const [items, setItems] = useState<Reservation[]>([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
-  const [pending, setPending] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<string | null>(null);
-  useFocusEffect(useCallback(() => {
-    let active = true; setLoading(true); setError('');
-    booksApi.reservations().then(data => { if (active) setItems(data.reservations); }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Cannot load reservations.'); }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-    // revision deliberately restarts loading when the user chooses Retry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revision]));
-  async function cancel(id: string) {
-    setPending(id); setError('');
-    try { await booksApi.cancel(id); setItems(current => current.filter(r => r.reservationId !== id)); setConfirm(null); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Cancellation failed.'); }
-    finally { setPending(null); }
-  }
-  return <ScrollView style={s.page} contentContainerStyle={s.content}><Text style={s.title}>My reservations</Text><Link href="/books" style={s.link}>Search books</Link>
-    {loading && <ActivityIndicator />}{!!error && <><Text accessibilityRole="alert" style={s.error}>{error}</Text><Pressable onPress={() => setRevision(v => v + 1)}><Text style={s.link}>Retry</Text></Pressable></>}
-    {!loading && !error && !items.length && <Text style={s.copy}>No reservations yet. Choose an available book from the catalogue.</Text>}
-    {items.map(item => <View key={item.reservationId} style={s.card}><Text style={s.heading}>{item.title}</Text><Text style={s.copy}>{item.pickupDate} · {item.pickupWindow}</Text><Text style={s.heading}>Pickup code: {item.pickupCode}</Text>
-      {confirm === item.reservationId ? <><Text style={s.copy}>Cancel this reservation and return the copy to the catalogue?</Text><Pressable disabled={pending !== null} onPress={() => cancel(item.reservationId)} style={s.button}><Text style={s.buttonText}>{pending ? 'Cancelling…' : 'Confirm cancellation'}</Text></Pressable><Pressable onPress={() => setConfirm(null)}><Text style={s.link}>Keep reservation</Text></Pressable></> : <Pressable onPress={() => setConfirm(item.reservationId)}><Text style={s.link}>Cancel reservation</Text></Pressable>}
-    </View>)}
-  </ScrollView>;
+import BookCover from '@/components/library/BookCover';
+export default function Holds() {
+  const library = useLibrary(); const ref = useRef(library); useEffect(() => { ref.current = library; }, [library]);
+  const [items, setItems] = useState<Reservation[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState(''), [confirm, setConfirm] = useState<string | null>(null), [busy, setBusy] = useState(false);
+  const load = useCallback(async () => { setLoading(true); setError(''); try { setItems(await ref.current.listHolds()); } catch (e) { setError(e instanceof Error ? e.message : 'Cannot load reservations.'); } finally { setLoading(false); } }, []);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  async function cancel(id: string) { setBusy(true); setError(''); try { await library.cancel(id); setItems(current => current.filter(item => item.reservationId !== id)); setConfirm(null); } catch (e) { setError(e instanceof Error ? e.message : 'Cancellation failed.'); } finally { setBusy(false); } }
+  return <Screen title="My reservations" subtitle="YOUR ACCOUNT SHELF" tab="holds" demo={library.demo}><View style={{ backgroundColor: c.primary, padding: 24, borderRadius: 20, gap: 8 }}><Text style={[u.eyebrow, { color: c.white }]}>A little reading, lined up.</Text><Text style={[u.title, { color: c.white }]}>{items.length} active {items.length === 1 ? 'reservation' : 'reservations'}</Text><Text style={[u.body, { color: c.white }]}>Your books. Your pickup details. All here.</Text></View>{loading && <ActivityIndicator />}{!!error && <><Message error>{error}</Message><Button outline onPress={load}>Retry</Button></>}<Section title="Upcoming pickups" />{items.map(item => <Card key={item.reservationId}><Badge tone="success">{library.demo ? 'DEMO HOLD' : 'RESERVED'}</Badge><View style={u.row}><BookCover book={item} /><View style={{ flex: 1, gap: 6 }}><Text style={u.heading}>{item.title}</Text><Text style={u.small}>{item.author}</Text></View></View><View style={u.divider} /><Text style={u.body}>{item.pickupDate} · {item.pickupWindow}</Text><Text selectable style={[u.heading, { color: c.primary }]}>{item.pickupCode}</Text>{confirm === item.reservationId ? <><Message>Cancel this hold and release the copy for another reader?</Message><Button busy={busy} onPress={() => cancel(item.reservationId)}>Confirm cancellation</Button><Button outline disabled={busy} onPress={() => setConfirm(null)}>Keep my reservation</Button></> : <Pressable onPress={() => setConfirm(item.reservationId)}><Text style={u.link}>Cancel reservation</Text></Pressable>}</Card>)}{!loading && !error && !items.length && <Card style={{ alignItems: 'center', paddingVertical: 32 }}><Icon name="bookmark" size={36} /><Text style={u.heading}>Your next read is waiting.</Text><Text style={[u.body, { textAlign: 'center' }]}>You have no active holds. Explore the catalogue and reserve an available title.</Text><Button onPress={() => router.push('/books')}>Find a book</Button></Card>}</Screen>;
 }
