@@ -21,6 +21,7 @@ import { Text, StyleSheet } from 'react-native';
 
 /** Subset of Ionicons names used in this feature */
 export type IonIconName =
+  // ── Notifications batch ──────────────────────────────────────────────────
   | 'notifications'
   | 'notifications-outline'
   | 'notifications-off-outline'
@@ -55,10 +56,37 @@ export type IonIconName =
   | 'mail-outline'
   | 'flash-outline'
   | 'location-outline'
-  | 'people-outline';
+  | 'people-outline'
+  // ── Profile batch ────────────────────────────────────────────────────────
+  | 'lock-closed'
+  | 'lock-closed-outline'
+  | 'pencil'
+  | 'create-outline'
+  | 'camera-outline'
+  | 'settings-outline'
+  | 'help-circle-outline'
+  | 'chatbubble-outline'
+  | 'document-outline'
+  | 'attach'
+  | 'chevron-down'
+  | 'star-outline'
+  | 'log-out-outline'
+  | 'id-card-outline'
+  | 'key-outline'
+  | 'globe-outline'
+  | 'phone-portrait-outline'
+  | 'eye-outline'
+  | 'bookmark-outline'
+  | 'list-outline'
+  | 'thumbs-up-outline'
+  | 'thumbs-down-outline'
+  | 'send'
+  | 'image-outline'
+  | 'warning-outline';
 
 /** Unicode glyph fallback map */
 const GLYPH: Record<IonIconName, string> = {
+  // ── Notifications batch ────────────────────────────────────────────────
   'notifications': '🔔',
   'notifications-outline': '🔔',
   'notifications-off-outline': '🔕',
@@ -94,6 +122,32 @@ const GLYPH: Record<IonIconName, string> = {
   'flash-outline': '⚡',
   'location-outline': '📍',
   'people-outline': '👥',
+  // ── Profile batch ──────────────────────────────────────────────────────
+  'lock-closed': '🔒',
+  'lock-closed-outline': '🔒',
+  'pencil': '✏',
+  'create-outline': '✏',
+  'camera-outline': '📷',
+  'settings-outline': '⚙',
+  'help-circle-outline': '？',
+  'chatbubble-outline': '💬',
+  'document-outline': '📄',
+  'attach': '📎',
+  'chevron-down': '⌄',
+  'star-outline': '☆',
+  'log-out-outline': '⎋',
+  'id-card-outline': '🪪',
+  'key-outline': '🔑',
+  'globe-outline': '🌐',
+  'phone-portrait-outline': '📱',
+  'eye-outline': '👁',
+  'bookmark-outline': '🔖',
+  'list-outline': '≡',
+  'thumbs-up-outline': '👍',
+  'thumbs-down-outline': '👎',
+  'send': '➤',
+  'image-outline': '🖼',
+  'warning-outline': '⚠',
 };
 
 export interface IonIconProps {
