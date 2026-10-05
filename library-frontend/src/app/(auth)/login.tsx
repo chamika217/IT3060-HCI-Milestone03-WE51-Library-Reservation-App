@@ -50,7 +50,7 @@ export default function Login() {
     <View style={{ flex: 1, width: '100%', minWidth: 0, flexDirection: wide ? 'row' : 'column', backgroundColor: c.background }}>
       <View style={{ flex: wide ? 7 : undefined, width: wide ? undefined : '100%', minWidth: 0, minHeight: wide ? undefined : 330, backgroundColor: c.text, padding: wide ? 44 : 24, justifyContent: 'space-between', gap: 28 }}>
         <View style={u.row}>
-          <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: c.successSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: c.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="book-open" color={c.text} size={21} />
           </View>
           <View>
@@ -61,11 +61,11 @@ export default function Login() {
 
         <View style={{ gap: wide ? 20 : 14, maxWidth: 720, width: '100%', alignSelf: 'center' }}>
           <View style={u.row}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.success }} />
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} />
             <Text style={{ color: '#C7D2E0', fontSize: 10, fontWeight: '700' }}>YOUR CAMPUS. YOUR NEXT CHAPTER.</Text>
           </View>
-          <Text style={{ color: c.white, fontSize: wide ? 52 : 36, lineHeight: wide ? 58 : 42, fontWeight: '800' }}>
-            Great ideas{'\n'}<Text style={{ color: '#C9E6D8' }}>start here.</Text>
+            <Text style={{ color: c.white, fontSize: wide ? 52 : 36, lineHeight: wide ? 58 : 42, fontWeight: '800' }}>
+            Great ideas{'\n'}<Text style={{ color: '#BBD7FF' }}>start here.</Text>
           </Text>
           <Text style={{ color: '#D3DDE8', fontSize: 14, lineHeight: 22, maxWidth: 460 }}>
             A little curiosity goes a long way. Discover your next read, reserve a book, and make more room for learning.
@@ -89,7 +89,7 @@ export default function Login() {
             <View style={{ flexDirection: 'row', gap: 20, borderTopWidth: 1, borderTopColor: '#536477', paddingTop: 18 }}>
               {readingSteps.map(step => (
                 <View key={step.number} style={{ flex: 1, gap: 6 }}>
-                  <Text style={{ color: c.success, fontSize: 10, fontWeight: '800' }}>{step.number}</Text>
+                  <Text style={{ color: c.primary, fontSize: 10, fontWeight: '800' }}>{step.number}</Text>
                   <Text style={{ color: c.white, fontSize: 13, fontWeight: '700' }}>{step.title}</Text>
                   <Text style={{ color: '#C7D2E0', fontSize: 10, lineHeight: 15 }}>{step.detail}</Text>
                 </View>
@@ -121,7 +121,7 @@ export default function Login() {
 
             <View style={u.between}>
               <Pressable onPress={() => setError('For account recovery, contact your campus library desk.')}>
-                <Text style={[u.link, { color: c.success }]}>Forgot password?</Text>
+                <Text style={[u.link, { color: c.primary }]}>Forgot password?</Text>
               </Pressable>
               <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: visible }} onPress={() => setVisible(!visible)}>
                 <Text style={u.link}>{visible ? 'Hide' : 'Show'}</Text>
@@ -134,7 +134,7 @@ export default function Login() {
             <View style={{ height: 1, backgroundColor: c.border }} />
             <View style={[u.row, { justifyContent: 'center', flexWrap: 'wrap' }]}>
               <Text style={u.small}>New to LibraReserve?</Text>
-              <Pressable onPress={() => router.push('/signup')}><Text style={[u.link, { color: c.success }]}>Create an account</Text></Pressable>
+              <Pressable onPress={() => router.push('/signup')}><Text style={[u.link, { color: c.primary }]}>Create an account</Text></Pressable>
             </View>
           </Card>
 
