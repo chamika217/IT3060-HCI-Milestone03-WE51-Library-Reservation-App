@@ -47,8 +47,8 @@ export default function Login() {
   }
 
   return (
-    <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column', backgroundColor: c.background }}>
-      <View style={{ flex: wide ? 7 : undefined, minHeight: wide ? undefined : 330, backgroundColor: c.text, padding: wide ? 44 : 24, justifyContent: 'space-between', gap: 28 }}>
+    <View style={{ flex: 1, width: '100%', minWidth: 0, flexDirection: wide ? 'row' : 'column', backgroundColor: c.background }}>
+      <View style={{ flex: wide ? 7 : undefined, width: wide ? undefined : '100%', minWidth: 0, minHeight: wide ? undefined : 330, backgroundColor: c.text, padding: wide ? 44 : 24, justifyContent: 'space-between', gap: 28 }}>
         <View style={u.row}>
           <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: c.successSoft, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="book-open" color={c.text} size={21} />
@@ -78,7 +78,7 @@ export default function Login() {
               const rotation = index === 0 ? '-6deg' : index === 1 ? '0deg' : '6deg';
               const offset = index === 1 ? 14 : 0;
               return (
-                <View key={index} style={{ width: imageWidth + 12, height: imageHeight + 12, marginBottom: offset, padding: 6, backgroundColor: c.white, borderRadius: 4, transform: [{ rotate: rotation }], shadowColor: '#000000', shadowOpacity: 0.2, shadowRadius: 12, shadowOffset: { width: 0, height: 7 } }}>
+                <View key={index} style={{ width: imageWidth + 12, height: imageHeight + 12, marginBottom: offset, padding: 6, backgroundColor: c.white, borderRadius: 4, transform: [{ rotate: rotation }] }}>
                   <Image source={cover} contentFit="cover" accessibilityLabel={`Featured library book ${index + 1}`} style={{ width: '100%', height: '100%' }} />
                 </View>
               );
@@ -101,8 +101,8 @@ export default function Login() {
         {wide && <Text style={{ color: '#C7D2E0', fontSize: 10 }}>Built for curious minds. The campus library portal.</Text>}
       </View>
 
-      <ScrollView style={{ flex: wide ? 3 : 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: wide ? 40 : 24, paddingVertical: 32 }} keyboardShouldPersistTaps="handled">
-        <View style={{ width: '100%', maxWidth: 420, gap: 24 }}>
+      <ScrollView style={{ flex: wide ? 3 : 1, width: wide ? undefined : '100%', minWidth: 0 }} contentContainerStyle={{ flexGrow: 1, width: '100%', minWidth: 0, justifyContent: 'center', alignItems: 'center', paddingHorizontal: wide ? 40 : 24, paddingVertical: 32 }} keyboardShouldPersistTaps="handled">
+        <View style={{ width: '100%', minWidth: 0, maxWidth: 420, gap: 24 }}>
           <View style={u.between}>
             <Text style={[u.eyebrow, { color: c.secondary }]}>STUDENT & STAFF ACCESS</Text>
             <View style={{ borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
