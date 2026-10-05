@@ -1,6 +1,5 @@
-﻿const { test } = require('node:test');
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const jwt = require('jsonwebtoken');
 const { today, validPickup } = require('../services/pickup');
 const { publicBook } = require('../services/catalogue');
 const Book = require('../models/Book');
@@ -41,21 +40,14 @@ test('cancellation matches the owner and restores stock only on a matching reser
   assert.deepEqual(captured.filter.reservations.$elemMatch, { _id: 'hold-1', userId: 'reader-b' });
   assert.equal(captured.update.$inc.copies, 1);
 });
-test('HTTP API rejects missing, expired and forged identities, accepts signed subject', async t => {
-  process.env.JWT_SECRET = 'test-only-secret-with-enough-length';
-  const app = require('../app');
+
+test('HTTP API rejects missing identities and accepts only an active session', async t => {
+  const Session = require('../models/Session'); const { hash } = require('../services/session'); const token = require('node:crypto').randomBytes(32).toString('base64url');
+  t.mock.method(Session, 'findOne', query => ({ lean: async () => query._id === hash(token) ? { _id: query._id, userId: 'reader' } : null }));
   t.mock.method(Book, 'find', () => ({ select: () => ({ lean: async () => [] }) }));
-  const server = app.listen(0, '127.0.0.1');
-  await new Promise(resolve => server.once('listening', resolve));
-  t.after(() => new Promise(resolve => server.close(resolve)));
+  const server = require('../app').listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve)); t.after(() => new Promise(resolve => server.close(resolve)));
   const base = 'http://127.0.0.1:' + server.address().port;
-  for (const token of ['', jwt.sign({ sub: 'reader', exp: 1 }, process.env.JWT_SECRET), jwt.sign({ sub: 'reader' }, 'wrong', { expiresIn: '1h' })]) {
-    const response = await fetch(base + '/api/reservations', { headers: token ? { Authorization: 'Bearer ' + token } : {} });
-    assert.equal(response.status, 401);
-  }
-  const token = jwt.sign({}, process.env.JWT_SECRET, { subject: 'reader', expiresIn: '1h' });
-  const response = await fetch(base + '/api/reservations', { headers: { Authorization: 'Bearer ' + token } });
-  assert.equal(response.status, 200); assert.deepEqual(await response.json(), { reservations: [] });
-  const malformed = await fetch(base + '/api/reservations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' });
-  assert.equal(malformed.status, 400);
+  for (const invalid of ['', 'forged', require('node:crypto').randomBytes(32).toString('base64url')]) { const r = await fetch(base + '/api/reservations', { headers: { Authorization: 'Bearer ' + invalid } }); assert.equal(r.status, 401); }
+  const r = await fetch(base + '/api/reservations', { headers: { Authorization: 'Bearer ' + token } }); assert.equal(r.status, 200);
+  const malformed = await fetch(base + '/api/reservations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' }); assert.equal(malformed.status, 400);
 });

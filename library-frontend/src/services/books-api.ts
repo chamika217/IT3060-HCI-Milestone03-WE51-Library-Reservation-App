@@ -4,17 +4,17 @@ const base = (process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'android' ? 'h
 let sessionToken: string | null = null;
 // Call after login; clear on logout. The auth feature owns secure persistence.
 export function setBookSessionToken(token: string | null) { sessionToken = token; }
-async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
     const response = await fetch(base + path, { method, signal: controller.signal,
       headers: { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}) });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({ message: 'The server returned an invalid response.' }));
     if (!response.ok) throw new Error(data.message || 'Request failed.');
     return data;
-  } finally { clearTimeout(timer); }
+  } catch (error) { if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Failed to fetch' || error.message === 'Network request failed')) throw new Error('Cannot reach the library server. Check your connection and try again.'); throw error; } finally { clearTimeout(timer); }
 }
 export const booksApi = {
   list: () => request<{ books: Book[] }>('/books'),

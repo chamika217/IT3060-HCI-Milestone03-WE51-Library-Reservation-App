@@ -1,12 +1,10 @@
-const jwt = require('jsonwebtoken');
-module.exports = (req, res, next) => {
-  if (!process.env.JWT_SECRET) return res.status(503).json({ message: 'Account integration is not configured yet.' });
-  const token = (req.get('Authorization') || '').match(/^Bearer (\S+)$/)?.[1];
+const Session = require('../models/Session');
+const { hash } = require('../services/session');
+module.exports = async (req, res, next) => {
+  const token = (req.get('Authorization') || '').match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
   if (!token) return res.status(401).json({ message: 'Please sign in to manage reservations.' });
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
-    if (typeof payload !== 'object' || typeof payload.sub !== 'string' || !payload.sub || !payload.exp) throw new Error('Invalid identity');
-    req.userId = payload.sub;
-    next();
-  } catch { res.status(401).json({ message: 'Your session expired. Please sign in again.' }); }
+  const session = await Session.findOne({ _id: hash(token), expiresAt: { $gt: new Date() } }).lean();
+  if (!session) return res.status(401).json({ message: 'Your session expired. Please sign in again.' });
+  req.userId = String(session.userId); req.sessionId = session._id;
+  next();
 };
