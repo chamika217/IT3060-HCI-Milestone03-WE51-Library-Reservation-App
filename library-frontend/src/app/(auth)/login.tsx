@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Button, Card, Field, Icon, Message, u } from '@/components/library/ui';
+import { Button, Card, Field, Message, u } from '@/components/library/ui';
 import AuthTemplate from '@/components/library/AuthTemplate';
 import { palette as c } from '@/constants/design-system';
 import { useLibrary } from '@/state/library';
