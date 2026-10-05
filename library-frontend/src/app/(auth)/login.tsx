@@ -48,7 +48,7 @@ export default function Login() {
 
   return (
     <View style={{ flex: 1, width: '100%', minWidth: 0, flexDirection: wide ? 'row' : 'column', backgroundColor: c.background }}>
-      <View style={{ flex: wide ? 7 : undefined, width: wide ? undefined : '100%', minWidth: 0, minHeight: wide ? undefined : 330, backgroundColor: c.text, padding: wide ? 44 : 24, justifyContent: 'space-between', gap: 28 }}>
+      <View style={{ flex: wide ? 6 : undefined, width: wide ? undefined : '100%', minWidth: 0, minHeight: wide ? undefined : 330, backgroundColor: c.text, borderLeftWidth: 4, borderLeftColor: c.primary, padding: wide ? 44 : 24, justifyContent: 'space-between', gap: 28 }}>
         <View style={u.row}>
           <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: c.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="book-open" color={c.text} size={21} />
@@ -65,7 +65,7 @@ export default function Login() {
             <Text style={{ color: '#C7D2E0', fontSize: 10, fontWeight: '700' }}>YOUR CAMPUS. YOUR NEXT CHAPTER.</Text>
           </View>
             <Text style={{ color: c.white, fontSize: wide ? 52 : 36, lineHeight: wide ? 58 : 42, fontWeight: '800' }}>
-            Great ideas{'\n'}<Text style={{ color: '#BBD7FF' }}>start here.</Text>
+            Great ideas{'\n'}<Text style={{ color: c.primary }}>start here.</Text>
           </Text>
           <Text style={{ color: '#D3DDE8', fontSize: 14, lineHeight: 22, maxWidth: 460 }}>
             A little curiosity goes a long way. Discover your next read, reserve a book, and make more room for learning.
@@ -101,7 +101,7 @@ export default function Login() {
         {wide && <Text style={{ color: '#C7D2E0', fontSize: 10 }}>Built for curious minds. The campus library portal.</Text>}
       </View>
 
-      <ScrollView style={{ flex: wide ? 3 : 1, width: wide ? undefined : '100%', minWidth: 0 }} contentContainerStyle={{ flexGrow: 1, width: '100%', minWidth: 0, justifyContent: 'center', alignItems: 'center', paddingHorizontal: wide ? 40 : 24, paddingVertical: 32 }} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: wide ? 4 : 1, width: wide ? undefined : '100%', minWidth: 0 }} contentContainerStyle={{ flexGrow: 1, width: '100%', minWidth: 0, justifyContent: 'center', alignItems: 'center', paddingHorizontal: wide ? 40 : 24, paddingVertical: 32 }} keyboardShouldPersistTaps="handled">
         <View style={{ width: '100%', minWidth: 0, maxWidth: 420, gap: 24 }}>
           <View style={u.between}>
             <Text style={[u.eyebrow, { color: c.secondary }]}>STUDENT & STAFF ACCESS</Text>
