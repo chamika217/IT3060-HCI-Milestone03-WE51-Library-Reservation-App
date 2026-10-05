@@ -15,6 +15,8 @@ export default function ReservationsScreen() {
     let active = true; setLoading(true); setError('');
     booksApi.reservations().then(data => { if (active) setItems(data.reservations); }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Cannot load reservations.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
+    // revision deliberately restarts loading when the user chooses Retry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision]));
   async function cancel(id: string) {
     setPending(id); setError('');

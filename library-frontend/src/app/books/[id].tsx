@@ -16,6 +16,8 @@ export default function BookDetailsScreen() {
     let active = true; setLoading(true); setError(''); setConfirmation(null);
     booksApi.detail(id).then(data => { if (active) setBook(data.book); }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Cannot load book.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
+    // revision deliberately restarts loading when the user chooses Retry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, revision]));
   return <ScrollView style={s.page} contentContainerStyle={s.content}>
     <Link href="/books" style={s.link}>Back to catalogue</Link>

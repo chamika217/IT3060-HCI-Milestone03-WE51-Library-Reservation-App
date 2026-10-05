@@ -14,6 +14,8 @@ export function useBooks() {
       .catch(() => { if (active) setError('Cannot load the catalogue. Check your connection and try again.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
+    // revision deliberately restarts loading when the user chooses Retry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision]));
   return { books, loading, error, retry: () => setRevision(value => value + 1) };
 }
