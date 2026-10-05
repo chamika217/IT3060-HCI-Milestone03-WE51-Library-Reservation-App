@@ -18,7 +18,9 @@ export default function Confirmation() {
             <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: c.successSoft, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="check" size={28} color={c.success} />
             </View>
-            <Badge tone="success">{demo ? 'DEMO CONFIRMED' : 'CONFIRMED'}</Badge>
+            <View style={{ alignItems: 'center' }}>
+              <Badge tone="success">{demo ? 'DEMO CONFIRMED' : 'CONFIRMED'}</Badge>
+            </View>
             <Text style={[u.title, { textAlign: 'center' }]}>Your next read is reserved.</Text>
             <Text style={[u.body, { textAlign: 'center' }]}>{demo ? 'You have completed the sample reservation flow.' : 'Keep your pickup code ready when you visit.'}</Text>
           </View>
