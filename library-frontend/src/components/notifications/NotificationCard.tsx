@@ -1,14 +1,9 @@
 /**
  * NotificationCard — list item for the notifications screen.
  *
- * Renders an icon circle, title + subtitle, timestamp badge, optional status
- * badge, and an optional quick-action button (e.g. "Extend +1h").
- * Tapping the card calls `onPress`; tapping the quick-action calls
- * `onQuickAction` without bubbling to the card.
- *
- * Web-safe nesting: the outer card uses a plain View + an absolutely-
- * positioned Pressable overlay so the quick-action Pressable is never
- * a DOM descendant of another <button> element.
+ * Web-safe design: there is exactly ONE Pressable per card (the outer card).
+ * The quick-action "button" is a styled View + Text that uses onStartShouldSetResponder
+ * on native and a role="button" + onClick on web — no nested <button> elements.
  */
 
 import React from 'react';
@@ -17,13 +12,15 @@ import {
   Text,
   Pressable,
   StyleSheet,
+  Platform,
+  GestureResponderEvent,
 } from 'react-native';
 
 import { IonIcon, IonIconName } from './IonIcon';
 import { StatusBadge, BadgeVariant } from './StatusBadge';
 import { Notification } from '@/features/notifications/types';
 
-// ─── Icon map ────────────────────────────────────────────────────────────────
+// ─── Icon map ─────────────────────────────────────────────────────────────────
 
 const TYPE_ICON: Record<Notification['type'], IonIconName> = {
   hold_ready:    'book',
@@ -32,7 +29,7 @@ const TYPE_ICON: Record<Notification['type'], IonIconName> = {
   system_info:   'information-circle',
 };
 
-// ─── Status badge derivation ──────────────────────────────────────────────────
+// ─── Badge derivation ─────────────────────────────────────────────────────────
 
 function deriveBadge(
   n: Notification,
@@ -49,7 +46,75 @@ function deriveBadge(
   return null;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── QuickActionPill ──────────────────────────────────────────────────────────
+/**
+ * A tappable pill that is intentionally NOT a Pressable/button so it can
+ * live inside the card's outer Pressable without producing nested <button>
+ * elements on web.
+ *
+ * On native: uses the responder system (onStartShouldSetResponder +
+ *   onResponderGrant/Release) to handle tap + pressed feedback.
+ * On web:    rendered as a <div role="button"> via accessibilityRole +
+ *   the web onClick prop injected through rest props.
+ */
+interface QuickActionPillProps {
+  label: string;
+  accentColor: string;
+  onPress?: () => void;
+}
+
+function QuickActionPill({ label, accentColor, onPress }: QuickActionPillProps) {
+  const [pressed, setPressed] = React.useState(false);
+
+  // Native responder callbacks — stop propagation so the card Pressable
+  // doesn't also fire.
+  function onStartShouldSetResponder() { return true; }
+  function onResponderGrant(_e: GestureResponderEvent) { setPressed(true); }
+  function onResponderRelease(_e: GestureResponderEvent) {
+    setPressed(false);
+    onPress?.();
+  }
+  function onResponderTerminate() { setPressed(false); }
+
+  // Web-only: inject onClick + keyboard handler directly onto the View node
+  const webProps = Platform.OS === 'web'
+    ? {
+        onClick: (e: React.MouseEvent) => { e.stopPropagation(); onPress?.(); },
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.stopPropagation();
+            onPress?.();
+          }
+        },
+        tabIndex: 0,
+        role: 'button' as const,
+      }
+    : {};
+
+  return (
+    <View
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onStartShouldSetResponder={onStartShouldSetResponder}
+      onResponderGrant={onResponderGrant}
+      onResponderRelease={onResponderRelease}
+      onResponderTerminate={onResponderTerminate}
+      style={[
+        styles.quickAction,
+        { borderColor: accentColor },
+        pressed && styles.quickActionPressed,
+      ]}
+      // Spread web-only props — on native these keys are ignored
+      {...(webProps as object)}
+    >
+      <Text style={[styles.quickActionText, { color: accentColor }]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+// ─── NotificationCard ─────────────────────────────────────────────────────────
 
 interface NotificationCardProps {
   notification: Notification;
@@ -67,32 +132,19 @@ export function NotificationCard({
   const iconName = TYPE_ICON[notification.type];
 
   return (
-    /**
-     * Outer View — NOT a Pressable so the quick-action button inside is
-     * never nested inside another <button> on web.
-     * A full-coverage Pressable overlay sits at z=0; the content sits at z=1
-     * above it, so the quick-action button intercepts its own taps first.
-     */
-    <View
-      style={[
+    // Single Pressable — the ONLY <button> in this subtree.
+    // QuickActionPill handles its own tap without being a Pressable.
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
         styles.card,
         isUnread && styles.cardUnread,
+        pressed && styles.cardPressed,
       ]}
       accessibilityRole="button"
       accessibilityLabel={`${notification.title}. ${notification.subtitle}. ${notification.timestamp}`}
     >
-      {/* Full-card tap target — sits behind all content */}
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.cardOverlay,
-          pressed && styles.cardPressed,
-        ]}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      />
-
-      {/* Unread indicator stripe */}
+      {/* Unread stripe */}
       {isUnread && (
         <View
           style={[styles.unreadStripe, { backgroundColor: notification.accentColor }]}
@@ -111,9 +163,7 @@ export function NotificationCard({
         <IonIcon name={iconName} size={22} color={notification.accentColor} />
       </View>
 
-      {/* Body — pointerEvents="box-none" lets the overlay catch taps on the
-          text areas, while still allowing the quick-action button to receive
-          its own press events */}
+      {/* Body */}
       <View style={styles.body} pointerEvents="box-none">
         {/* Title row */}
         <View style={styles.titleRow} pointerEvents="none">
@@ -136,41 +186,22 @@ export function NotificationCard({
           <View style={styles.actionsRow} pointerEvents="box-none">
             {badge && (
               <View pointerEvents="none">
-                <StatusBadge
-                  label={badge.label}
-                  variant={badge.variant}
-                  size="sm"
-                />
+                <StatusBadge label={badge.label} variant={badge.variant} size="sm" />
               </View>
             )}
 
-            {/* Quick-action is a real Pressable but is NOT nested inside
-                another Pressable — the outer card is a plain View */}
+            {/* QuickActionPill is a View, never a Pressable — safe to nest */}
             {notification.quickAction && (
-              <Pressable
+              <QuickActionPill
+                label={notification.quickAction}
+                accentColor={notification.accentColor}
                 onPress={onQuickAction}
-                style={({ pressed }) => [
-                  styles.quickAction,
-                  { borderColor: notification.accentColor },
-                  pressed && styles.quickActionPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={notification.quickAction}
-              >
-                <Text
-                  style={[
-                    styles.quickActionText,
-                    { color: notification.accentColor },
-                  ]}
-                >
-                  {notification.quickAction}
-                </Text>
-              </Pressable>
+              />
             )}
           </View>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -187,8 +218,6 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
     overflow: 'hidden',
-    position: 'relative',
-    // Shadow
     shadowColor: '#1C283B',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -199,14 +228,8 @@ const styles = StyleSheet.create({
     borderColor: '#B3D0F7',
     backgroundColor: '#F4F9FF',
   },
-  // Full-coverage overlay Pressable that handles the card tap
-  cardOverlay: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 14,
-    zIndex: 0,
-  },
   cardPressed: {
-    backgroundColor: 'rgba(0,0,0,0.04)',
+    opacity: 0.85,
   },
   unreadStripe: {
     position: 'absolute',
@@ -268,7 +291,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 3,
-  },
+    cursor: 'pointer',
+  } as object,
   quickActionPressed: {
     opacity: 0.7,
   },
