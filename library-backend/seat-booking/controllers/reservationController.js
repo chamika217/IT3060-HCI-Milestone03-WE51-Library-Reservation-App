@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Seat = require('../models/Seat');
 const Reservation = require('../models/Reservation');
+require('../models/Room');
 
 exports.createReservation = async (req, res) => {
   try {
@@ -48,5 +49,47 @@ exports.createReservation = async (req, res) => {
     res.status(201).json(reservation);
   } catch (err) {
     res.status(500).json({ message: 'Failed to create reservation' });
+  }
+};
+exports.getMyReservations = async (req, res) => {
+  try {
+    const { user, scope } = req.query;
+
+    if (!mongoose.isValidObjectId(user)) {
+      return res.status(400).json({ message: 'A valid user id is required' });
+    }
+
+    const now = new Date();
+    let filter = { user };
+    let order = { startTime: -1 };
+
+    if (scope === 'active') {
+      filter = {
+        user,
+        status: { $in: ['reserved', 'checked-in'] },
+        endTime: { $gt: now },
+      };
+      order = { startTime: 1 };
+    } else if (scope === 'past') {
+      filter = {
+        user,
+        $or: [
+          { status: { $nin: ['reserved', 'checked-in'] } },
+          { endTime: { $lte: now } },
+        ],
+      };
+    }
+
+    const reservations = await Reservation.find(filter)
+      .sort(order)
+      .populate({
+        path: 'seat',
+        select: 'seatNumber pod features room',
+        populate: { path: 'room', select: 'code name level' },
+      });
+
+    res.json(reservations);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to load reservations' });
   }
 };
