@@ -2,24 +2,24 @@
  * Screen 2 — Notification Detail
  * Route: /(tabs)/notifications/[id]
  *
- * Reads `id` from route params, looks it up in the mock array.
- * Swap MOCK_NOTIFICATIONS lookup for GET /api/notifications/:id.
+ * Data: real API via getNotificationDetail(id) — was MOCK_NOTIFICATIONS lookup.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 
 import { ScreenHeader, BottomNavBar, IonIcon, StatusBadge } from '@/components/notifications';
-import { MOCK_NOTIFICATIONS, getUnreadCount } from '@/features/notifications/mockData';
 import { Notification } from '@/features/notifications/types';
+import { getNotificationDetail } from '@/services/api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,26 +48,61 @@ export default function NotificationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
 
-  // In production: fetch(`/api/notifications/${id}`)
-  const notification = MOCK_NOTIFICATIONS.find((n) => n.id === id);
-  const unreadCount = getUnreadCount(MOCK_NOTIFICATIONS);
+  const [notification, setNotification] = useState<Notification | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
 
-  if (!notification) {
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    getNotificationDetail(String(id))
+      .then(setNotification)
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load notification.'),
+      )
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  // ── Loading ──────────────────────────────────────────────────────────────
+  if (loading) {
     return (
       <View style={styles.screen}>
-        <ScreenHeader
-          title="Notification Detail"
-          onBack={() => router.back()}
-        />
-        <View style={styles.notFound}>
-          <IonIcon name="alert-circle-outline" size={40} color="#6C7886" />
-          <Text style={styles.notFoundText}>Notification not found.</Text>
+        <ScreenHeader title="Notification Detail" onBack={() => router.back()} />
+        <View style={styles.centeredFill}>
+          <ActivityIndicator size="large" color="#2D7CE9" />
         </View>
-        <BottomNavBar activeTab="alerts" unreadCount={unreadCount} />
+        <BottomNavBar activeTab="alerts" unreadCount={0} />
       </View>
     );
   }
 
+  // ── Error / not found ────────────────────────────────────────────────────
+  if (error || !notification) {
+    return (
+      <View style={styles.screen}>
+        <ScreenHeader title="Notification Detail" onBack={() => router.back()} />
+        <View style={styles.centeredFill}>
+          <IonIcon name="alert-circle-outline" size={40} color="#6C7886" />
+          <Text style={styles.notFoundText}>
+            {error ?? 'Notification not found.'}
+          </Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [styles.backLink, pressed && styles.pressed]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.backLinkText}>← Go back</Text>
+          </Pressable>
+        </View>
+        <BottomNavBar activeTab="alerts" unreadCount={0} />
+      </View>
+    );
+  }
+
+  // unreadCount is not available here without a full list fetch;
+  // pass 0 — the list screen holds the authoritative count.
+  const unreadCount = 0;
   const { detail } = notification;
 
   return (
@@ -325,6 +360,22 @@ const styles = StyleSheet.create({
   notFoundText: {
     fontSize: 15,
     color: '#6C7886',
+    textAlign: 'center',
+  },
+  centeredFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    padding: 24,
+  },
+  backLink: {
+    paddingVertical: 8,
+  },
+  backLinkText: {
+    fontSize: 14,
+    color: '#2D7CE9',
+    fontWeight: '600',
   },
 
   // Status chip row
