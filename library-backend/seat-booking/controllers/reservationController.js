@@ -93,3 +93,32 @@ exports.getMyReservations = async (req, res) => {
     res.status(500).json({ message: 'Failed to load reservations' });
   }
 };
+exports.cancelReservation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user } = req.body || {};
+
+    if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(user)) {
+      return res.status(400).json({ message: 'Valid reservation and user ids are required' });
+    }
+
+    const reservation = await Reservation.findOne({ _id: id, user });
+    if (!reservation) {
+      return res.status(404).json({ message: 'Reservation not found' });
+    }
+
+    if (reservation.status !== 'reserved') {
+      return res.status(400).json({ message: 'Only a reserved booking can be cancelled' });
+    }
+    if (reservation.endTime <= new Date()) {
+      return res.status(400).json({ message: 'This booking has already ended' });
+    }
+
+    reservation.status = 'cancelled';
+    await reservation.save();
+
+    res.json(reservation);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to cancel reservation' });
+  }
+};
