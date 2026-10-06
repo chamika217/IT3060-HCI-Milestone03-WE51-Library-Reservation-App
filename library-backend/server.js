@@ -3,6 +3,12 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
+// ── Route imports ─────────────────────────────────────────────────────────────
+const authRoutes         = require('./routes/auth');
+const userRoutes         = require('./routes/users');
+const notificationRoutes = require('./routes/notifications');
+const contactRoutes      = require('./routes/contact');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -35,6 +41,17 @@ mongoose.connection.on('reconnected', () =>
 
 app.get('/', (req, res) => {
   res.send('Library Reservation API is running');
+});
+
+// ── API routes ────────────────────────────────────────────────────────────────
+app.use('/api/auth',          authRoutes);
+app.use('/api/users',         userRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/contact',       contactRoutes);
+
+// 404 handler for unmatched routes
+app.use((req, res) => {
+  res.status(404).json({ message: `Route ${req.method} ${req.path} not found.` });
 });
 
 const PORT = process.env.PORT || 5000;
