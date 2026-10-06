@@ -4,6 +4,7 @@ const requireAuth = require('../middleware/requireAuth');
 const limit = require('../middleware/authLimit');
 router.post('/register', limit, auth.register);
 router.post('/login', limit, auth.login);
+router.post('/google', limit, auth.google);
 router.get('/me', requireAuth, auth.me);
 router.post('/logout', requireAuth, auth.logout);
 module.exports = router;

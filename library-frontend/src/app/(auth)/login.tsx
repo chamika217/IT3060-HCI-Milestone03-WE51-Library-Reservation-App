@@ -3,11 +3,12 @@ import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Button, Card, Field, Message, u } from '@/components/library/ui';
 import AuthTemplate from '@/components/library/AuthTemplate';
+import GoogleSignIn from '@/components/library/GoogleSignIn';
 import { palette as c } from '@/constants/design-system';
 import { useLibrary } from '@/state/library';
 
 export default function Login() {
-  const { startDemo, login } = useLibrary();
+  const { startDemo, login, loginWithGoogle } = useLibrary();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
@@ -28,6 +29,20 @@ export default function Login() {
       router.replace('/home');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitGoogleCredential(credential: string) {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await loginWithGoogle(credential);
+      router.replace('/home');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Google sign-in failed.');
     } finally {
       setBusy(false);
     }
@@ -64,6 +79,9 @@ export default function Login() {
         </View>
         {!!error && <Message error>{error}</Message>}
         <Button busy={busy} onPress={submit} icon="arrow-right">Sign in to your library</Button>
+        <View style={{ height: 1, backgroundColor: c.border }} />
+        <Text style={[u.caption, { textAlign: 'center' }]}>OR CONTINUE WITH</Text>
+        <GoogleSignIn onCredential={submitGoogleCredential} disabled={busy} />
         <View style={{ height: 1, backgroundColor: c.border }} />
         <View style={[u.row, { justifyContent: 'center', flexWrap: 'wrap' }]}>
           <Text style={u.small}>New to LibraReserve?</Text>
