@@ -7,6 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/api/rooms', require('./seat-booking/routes/roomRoutes'));
+app.use('/api/seats', require('./seat-booking/routes/seatRoutes'));
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected successfully'))
