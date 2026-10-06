@@ -10,14 +10,23 @@ const Announcement = require('./models/Announcement');
 
 const resetMode = process.argv.includes('--reset');
 const opt = { upsert: true, returnDocument: 'after' };
+const adminEmail = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
+const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@12345';
 
 (async () => {
   await mongoose.connect(process.env.MONGODB_URI);
-  const hash = await bcrypt.hash('Admin@123', 10);
+  const adminHash = await bcrypt.hash(adminPassword, 10);
 
   const upsertUser = (name, email, role) =>
-    User.findOneAndUpdate({ email }, { name, email, role, password: hash, status: 'Active' }, opt);
-  await upsertUser('Library Admin', 'admin@library.com', 'Admin');
+    User.findOneAndUpdate({ email }, { name, email, role, password: adminHash, status: 'Active' }, opt);
+
+  const existingAdmin = await User.findOne({ email: adminEmail });
+  if (!existingAdmin) {
+    await User.create({ name: 'Library Admin', email: adminEmail, password: adminHash, role: 'Admin', status: 'Active' });
+    console.log(`Admin account created for ${adminEmail}.`);
+  } else {
+    console.log(`Admin account already exists for ${adminEmail}; no duplicate created.`);
+  }
   await upsertUser('Staff Member', 'staff@library.com', 'Staff');
   const students = [];
   for (const [n, e] of [['Nimal Perera', 'nimal@student.com'], ['Kasun Silva', 'kasun@student.com'], ['Nethmi Fernando', 'nethmi@student.com']])
@@ -72,6 +81,6 @@ const opt = { upsert: true, returnDocument: 'after' };
     console.log('Seed mode: existing announcements preserved; demo announcements were skipped.');
   }
 
-  console.log(`${resetMode ? 'Reset' : 'Default'} seed mode finished. Login: admin@library.com / Admin@123`);
+  console.log(`${resetMode ? 'Reset' : 'Default'} seed mode finished. Login: ${adminEmail}.`);
   process.exit(0);
 })();
