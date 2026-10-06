@@ -13,7 +13,7 @@ const credentials = body => {
 exports.register = async (req, res) => {
   const data = credentials(req.body);
   const name = clean(req.body?.name), studentId = clean(req.body?.studentId).toUpperCase(), department = clean(req.body?.department);
-  if (!data || !name || name.length > 120 || !studentId || studentId.length > 50 || !department || department.length > 120 || req.body?.acceptedTerms !== true) return res.status(400).json({ message: 'Enter valid account details, a password of 8–72 bytes, and accept the borrowing terms.' });
+  if (!data || data.password.length < 8 || !/[a-z]/.test(data.password) || !/[A-Z]/.test(data.password) || !name || name.length > 120 || !studentId || studentId.length > 50 || !department || department.length > 120 || req.body?.acceptedTerms !== true) return res.status(400).json({ message: 'Password must be at least 8 characters and include an uppercase and a lowercase letter. Complete all required fields and accept the borrowing terms.' });
   const passwordHash = await bcrypt.hash(data.password, 12);
   let user;
   try { user = await User.create({ name, studentId, department, email: data.email, passwordHash }); }

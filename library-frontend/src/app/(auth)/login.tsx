@@ -8,12 +8,19 @@ import { palette as c } from '@/constants/design-system';
 import { useLibrary } from '@/state/library';
 
 export default function Login() {
-  const { startDemo, login, loginWithGoogle } = useLibrary();
+  const { login, loginWithGoogle } = useLibrary();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const passwordValidation = password.length === 0
+    ? ''
+    : password.length < 8
+      ? 'Password must contain at least 8 characters.'
+      : !/[a-z]/.test(password) || !/[A-Z]/.test(password)
+        ? 'Password should include an uppercase and a lowercase letter.'
+        : '';
 
   async function submit() {
     if (busy) return;
@@ -56,9 +63,6 @@ export default function Login() {
         <>
           <Text style={u.small}>A little help goes a long way.</Text>
           <Text style={u.caption}>For account support, visit your library circulation desk.</Text>
-          <Pressable onPress={() => { startDemo(); router.replace('/home'); }} style={{ paddingVertical: 10 }}>
-            <Text style={[u.link, { color: c.secondary }]}>Explore demo without signing in</Text>
-          </Pressable>
         </>
       )}
     >
@@ -68,7 +72,8 @@ export default function Login() {
           <Text style={u.body}>Your next great read is waiting. Sign in to continue.</Text>
         </View>
         <Field label="EMAIL ADDRESS" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" placeholder="you@university.edu" style={{ backgroundColor: c.primarySoft, minHeight: 54, paddingVertical: 16 }} />
-        <Field label="PASSWORD" value={password} onChangeText={setPassword} secureTextEntry={!visible} autoComplete="current-password" placeholder="Enter your password" style={{ backgroundColor: c.primarySoft, minHeight: 54, paddingVertical: 16 }} />
+        <Field label="PASSWORD" value={password} onChangeText={value => { setPassword(value); setError(''); }} secureTextEntry={!visible} autoComplete="current-password" placeholder="Enter your password" style={{ backgroundColor: c.primarySoft, minHeight: 54, paddingVertical: 16 }} />
+        {!!passwordValidation && <Message error>{passwordValidation}</Message>}
         <View style={u.between}>
           <Pressable onPress={() => router.push('/forgot-password')}>
             <Text style={[u.link, { color: c.primary }]}>Forgot password?</Text>

@@ -8,12 +8,22 @@ import { palette as c } from '@/constants/design-system';
 export default function Signup() {
   const { register, pendingGoogle, completeGoogleRegistration, clearGoogleRegistration } = useLibrary(); const [busy, setBusy] = useState(false);
   const [name, setName] = useState(''), [student, setStudent] = useState(''), [email, setEmail] = useState(''), [password, setPassword] = useState(''), [department, setDepartment] = useState(''), [accepted, setAccepted] = useState(false), [error, setError] = useState('');
+  const passwordError = password.length === 0
+    ? ''
+    : password.length < 8
+      ? 'Password must contain at least 8 characters.'
+      : !/[a-z]/.test(password) || !/[A-Z]/.test(password)
+        ? 'Password must include at least one uppercase and one lowercase letter.'
+        : '';
   async function submit() {
     if (busy) return;
     const completeProfile = student.trim() && department.trim() && accepted;
-    const completePasswordSignup = name.trim() && email.includes('@') && password.length >= 8;
+    const validPassword = password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password);
+    const completePasswordSignup = name.trim() && email.includes('@') && validPassword;
     if (!completeProfile || (!pendingGoogle && !completePasswordSignup)) {
-      setError(pendingGoogle ? 'Enter your student or staff ID and department, then accept the borrowing terms.' : 'Complete all fields, use a password of at least 8 characters, and accept the borrowing terms.');
+      setError(pendingGoogle
+        ? 'Enter your student or staff ID and department, then accept the borrowing terms.'
+        : passwordError || 'Complete all required fields and accept the borrowing terms.');
       return;
     }
     setBusy(true); setError('');
@@ -44,7 +54,10 @@ export default function Signup() {
         <Field label="STUDENT / STAFF ID" placeholder="IT20240001" value={student} onChangeText={setStudent} style={{ backgroundColor: c.primarySoft }} />
         {!pendingGoogle && <Field label="UNIVERSITY EMAIL" placeholder="you@university.edu" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" style={{ backgroundColor: c.primarySoft }} />}
         <Field label="DEPARTMENT / FACULTY" placeholder="School of Computing" value={department} onChangeText={setDepartment} style={{ backgroundColor: c.primarySoft }} />
-        {!pendingGoogle && <Field label="PASSWORD" placeholder="At least 8 characters" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" style={{ backgroundColor: c.primarySoft }} />}
+        {!pendingGoogle && <>
+          <Field label="PASSWORD" placeholder="8+ characters, uppercase and lowercase" value={password} onChangeText={value => { setPassword(value); setError(''); }} secureTextEntry autoComplete="new-password" style={{ backgroundColor: c.primarySoft }} />
+          {!!passwordError && <Message error>{passwordError}</Message>}
+        </>}
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} onPress={() => setAccepted(!accepted)} style={u.row}>
           <Icon name={accepted ? 'check-square' : 'square'} color={accepted ? c.primary : c.secondary} />
           <Text style={[u.small, { flex: 1 }]}>I agree to the library borrowing terms and late-return policy.</Text>

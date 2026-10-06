@@ -3,9 +3,7 @@ import { router } from 'expo-router';
 import { Button, u } from '@/components/library/ui';
 import AuthTemplate from '@/components/library/AuthTemplate';
 import { palette as c } from '@/constants/design-system';
-import { useLibrary } from '@/state/library';
 export default function Onboarding() {
-  const { startDemo } = useLibrary();
   return (
     <AuthTemplate
       accessLabel="YOUR CAMPUS LIBRARY"
@@ -19,7 +17,6 @@ export default function Onboarding() {
       </View>
       <View style={{ gap: 12 }}>
         <Button icon="arrow-right" onPress={() => router.push('/login')}>Sign in to your library</Button>
-        <Button outline onPress={() => { startDemo(); router.replace('/home'); }}>Explore the demo</Button>
       </View>
       <View style={[u.row, { justifyContent: 'center', flexWrap: 'wrap' }]}>
         <Text style={u.small}>New to the library?</Text>
