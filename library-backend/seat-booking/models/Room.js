@@ -14,7 +14,7 @@ const roomSchema = new mongoose.Schema(
     amenities: [String],
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  { timestamps: true, collection: 'sb_rooms' }
 );
 
 module.exports = mongoose.model('Room', roomSchema);

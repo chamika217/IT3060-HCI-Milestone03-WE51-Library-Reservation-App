@@ -21,7 +21,7 @@ const reservationSchema = new mongoose.Schema(
     },
     releasedAt: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true, collection: 'sb_reservations' }
 );
 
 reservationSchema.index({ seat: 1, startTime: 1, endTime: 1 });

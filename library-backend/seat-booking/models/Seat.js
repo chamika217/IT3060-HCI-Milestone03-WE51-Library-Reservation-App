@@ -8,7 +8,7 @@ const seatSchema = new mongoose.Schema(
     features: [String],
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true }
+  { timestamps: true, collection: 'sb_seats' }
 );
 
 seatSchema.index({ room: 1, seatNumber: 1 }, { unique: true });
