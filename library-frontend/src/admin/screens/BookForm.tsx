@@ -5,7 +5,7 @@ import { Header, Button, Input, Chip } from '../components';
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
 
-export default function BookForm({ nav, params }) {
+export default function BookForm({ nav, params }: any) {
   const book = params?.book;
   const edit = !!book;
   const cats = useLoad('/categories');
@@ -13,7 +13,7 @@ export default function BookForm({ nav, params }) {
     title: book?.title || '', author: book?.author || '', isbn: book?.isbn || '',
     copies: String(book?.copies ?? 1), category: book?.category?._id || '',
   });
-  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
+  const set = (k: any) => (v: any) => setF((x: any) => ({ ...x, [k]: v }));
 
   const save = async () => {
     if (!f.title.trim() || !f.author.trim() || !f.isbn.trim()) return Alert.alert('Missing details', 'Title, author and ISBN are required');
@@ -44,7 +44,7 @@ export default function BookForm({ nav, params }) {
         <Input label="Copies *" value={f.copies} onChangeText={set('copies')} keyboardType="numeric" />
         <Text style={{ color: colors.textSecondary, marginBottom: 6 }}>Category</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md }}>
-          {(cats.data || []).map((c) => <Chip key={c._id} label={c.name} active={f.category === c._id} onPress={() => set('category')(f.category === c._id ? '' : c._id)} />)}
+          {(cats.data || []).map((c: any) => <Chip key={c._id} label={c.name} active={f.category === c._id} onPress={() => set('category')(f.category === c._id ? '' : c._id)} />)}
         </View>
         <Button title={edit ? 'Save Changes' : 'Save Book'} onPress={save} />
         {edit && <Button title="Delete Book" variant="danger" style={{ marginTop: spacing.md }} onPress={remove} />}

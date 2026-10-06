@@ -5,10 +5,10 @@ import { Header, Card, Button, Input, Loading, ErrorBox, Empty } from '../compon
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
 
-export default function ManageCategories({ nav }) {
+export default function ManageCategories({ nav }: any) {
   const { data, loading, error, reload } = useLoad('/categories');
   const [name, setName] = useState('');
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<any>(null);
 
   const save = async () => {
     if (!name.trim()) return Alert.alert('Missing name', 'Enter a category name');
@@ -18,7 +18,7 @@ export default function ManageCategories({ nav }) {
       setName(''); setEditing(null); reload();
     } catch (e) { Alert.alert('Error', errMsg(e)); }
   };
-  const remove = (c) => Alert.alert('Delete category', `Delete "${c.name}"?`, [
+  const remove = (c: any) => Alert.alert('Delete category', `Delete "${c.name}"?`, [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Delete', style: 'destructive', onPress: async () => { await api.delete(`/categories/${c._id}`); reload(); } },
   ]);
@@ -33,7 +33,7 @@ export default function ManageCategories({ nav }) {
           {editing && <Button title="Cancel" variant="outline" style={{ flex: 1, marginLeft: spacing.sm }} onPress={() => { setEditing(null); setName(''); }} />}
         </View>
         {loading ? <Loading /> : error ? <ErrorBox message={error} onRetry={reload} /> : !data.length ? <Empty text="No categories" /> :
-          data.map((c) => (
+          data.map((c: any) => (
             <Card key={c._id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ color: colors.text, fontWeight: '600', flex: 1 }}>{c.name}</Text>
               <Button title="Edit" variant="outline" style={{ paddingVertical: 6, marginRight: spacing.sm }} onPress={() => { setEditing(c); setName(c.name); }} />

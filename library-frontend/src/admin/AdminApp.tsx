@@ -10,11 +10,12 @@ import BookForm from './screens/BookForm';
 import ManageCategories from './screens/ManageCategories';
 import ManageUsers from './screens/ManageUsers';
 import ManageReservations from './screens/ManageReservations';
+import ReservationForm from './screens/ReservationForm';
 import ManageSeats from './screens/ManageSeats';
 import Reports from './screens/Reports';
 import NotificationsMgmt from './screens/NotificationsMgmt';
 
-function More({ nav }) {
+function More({ nav }: any) {
   const items = [['Manage Categories', 'Categories'], ['Manage Users', 'Users'], ['Reports & Statistics', 'Reports'], ['Notifications Management', 'Notifications']];
   return (
     <View style={{ flex: 1 }}>
@@ -33,19 +34,19 @@ function More({ nav }) {
   );
 }
 
-const SCREENS = {
+const SCREENS: Record<string, any> = {
   Login: AdminLogin, Dashboard: AdminDashboard, Books: ManageBooks, BookForm, Categories: ManageCategories,
-  Users: ManageUsers, Reservations: ManageReservations, Seats: ManageSeats, Reports, Notifications: NotificationsMgmt, More,
+  Users: ManageUsers, Reservations: ManageReservations, ReservationForm, Seats: ManageSeats, Reports, Notifications: NotificationsMgmt, More,
 };
 const TABS = [['Dashboard', 'Home'], ['Books', 'Books'], ['Reservations', 'Bookings'], ['Seats', 'Seats'], ['More', 'More']];
 
 export default function AdminApp() {
-  const [stack, setStack] = useState([{ name: 'Login' }]);
+  const [stack, setStack] = useState<any[]>([{ name: 'Login' }]);
   const current = stack[stack.length - 1];
   const nav = {
-    navigate: (name, params) => setStack((s) => [...s, { name, params }]),
-    goBack: () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)),
-    reset: (name) => setStack([{ name }]),
+    navigate: (name: any, params: any) => setStack((s: any) => [...s, { name, params }]),
+    goBack: () => setStack((s: any) => (s.length > 1 ? s.slice(0, -1) : s)),
+    reset: (name: any) => setStack([{ name }]),
   };
   const Screen = SCREENS[current.name];
   const showTabs = current.name !== 'Login';

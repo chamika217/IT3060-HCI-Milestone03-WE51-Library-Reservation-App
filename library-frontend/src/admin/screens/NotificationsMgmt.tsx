@@ -5,7 +5,7 @@ import { Header, Card, Button, Input, Loading, ErrorBox, Empty } from '../compon
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
 
-export default function NotificationsMgmt({ nav }) {
+export default function NotificationsMgmt({ nav }: any) {
   const { data, loading, error, reload } = useLoad('/announcements');
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
@@ -15,8 +15,8 @@ export default function NotificationsMgmt({ nav }) {
     try { await api.post('/announcements', { title, message }); setTitle(''); setMessage(''); reload(); }
     catch (e) { Alert.alert('Error', errMsg(e)); }
   };
-  const toggle = async (a) => { await api.put(`/announcements/${a._id}`, { active: !a.active }); reload(); };
-  const remove = (a) => Alert.alert('Delete', `Delete "${a.title}"?`, [
+  const toggle = async (a: any) => { await api.put(`/announcements/${a._id}`, { active: !a.active }); reload(); };
+  const remove = (a: any) => Alert.alert('Delete', `Delete "${a.title}"?`, [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Delete', style: 'destructive', onPress: async () => { await api.delete(`/announcements/${a._id}`); reload(); } },
   ]);
@@ -31,7 +31,7 @@ export default function NotificationsMgmt({ nav }) {
           <Button title="Publish announcement" onPress={add} />
         </Card>
         {loading ? <Loading /> : error ? <ErrorBox message={error} onRetry={reload} /> : !data.length ? <Empty text="No announcements" /> :
-          data.map((a) => (
+          data.map((a: any) => (
             <Card key={a._id}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={{ fontWeight: '700', color: colors.text, flex: 1 }}>{a.title}</Text>

@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import api, { errMsg } from './api';
 
-export default function useLoad(path, params = {}, pollMs = 0) {
-  const [data, setData] = useState(null);
+export default function useLoad(path: string, params: Record<string, any> = {}, pollMs = 0) {
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const key = JSON.stringify(params);

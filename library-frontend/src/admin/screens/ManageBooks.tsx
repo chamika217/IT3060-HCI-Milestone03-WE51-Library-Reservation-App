@@ -5,11 +5,11 @@ import { Header, Card, Button, Input, StatusBadge, Loading, ErrorBox, Empty } fr
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
 
-export default function ManageBooks({ nav }) {
+export default function ManageBooks({ nav }: any) {
   const [q, setQ] = useState('');
   const { data, loading, error, reload } = useLoad('/books', { search: q });
 
-  const remove = (b) => Alert.alert('Delete book', `Delete "${b.title}"?`, [
+  const remove = (b: any) => Alert.alert('Delete book', `Delete "${b.title}"?`, [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Delete', style: 'destructive', onPress: async () => {
       try { await api.delete(`/books/${b._id}`); reload(); } catch (e) { Alert.alert('Error', errMsg(e)); }
@@ -25,9 +25,9 @@ export default function ManageBooks({ nav }) {
       </View>
       {loading ? <Loading /> : error ? <ErrorBox message={error} onRetry={reload} /> : (
         <FlatList
-          data={data} keyExtractor={(b) => b._id} contentContainerStyle={{ padding: spacing.md }}
+          data={data} keyExtractor={(b: any) => b._id} contentContainerStyle={{ padding: spacing.md }}
           ListEmptyComponent={<Empty text="No books found" />}
-          renderItem={({ item: b }) => (
+          renderItem={({ item: b }: any) => (
             <Card onPress={() => nav.navigate('BookForm', { book: b })}>
               <Text style={{ fontSize: font.body + 2, fontWeight: '700', color: colors.text }}>{b.title}</Text>
               <Text style={{ color: colors.textSecondary }}>{b.author} • {b.category?.name || 'Uncategorised'}</Text>
