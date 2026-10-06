@@ -6,8 +6,10 @@ router.use(protect, staffOnly);
 const populate = r => r.populate('user', 'name email').populate('book', 'title').populate('seat', 'label room');
 
 router.get('/', async (req, res) => {
-  const q = req.query.status ? { status: req.query.status } : {};
-  res.json(await populate(Reservation.find(q).sort({ startTime: -1 })));
+  try {
+    const q = req.query.status ? { status: req.query.status } : {};
+    res.json(await populate(Reservation.find(q).sort({ startTime: -1 })));
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.post('/', async (req, res) => {
@@ -24,8 +26,10 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  await Reservation.findByIdAndDelete(req.params.id);
-  res.json({ message: 'Deleted' });
+  try {
+    await Reservation.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Deleted' });
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 module.exports = router;

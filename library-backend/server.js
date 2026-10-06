@@ -8,9 +8,6 @@ app.use(cors());
 app.use(express.json());
 
 
-app.use('/api/admin/books', require('./routes/admin/books'));
-app.use('/api/admin/categories', require('./routes/admin/categories'));
-
 app.use('/api/admin/auth', require('./routes/admin/auth'));
 app.use('/api/admin/books', require('./routes/admin/books'));
 app.use('/api/admin/categories', require('./routes/admin/categories'));

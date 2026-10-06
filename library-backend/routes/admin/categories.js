@@ -3,7 +3,9 @@ const Category = require('../../models/Category');
 const { protect, staffOnly } = require('../../middleware/auth');
 router.use(protect, staffOnly);
 
-router.get('/', async (req, res) => res.json(await Category.find().sort({ name: 1 })));
+router.get('/', async (req, res) => {
+  try { res.json(await Category.find().sort({ name: 1 })); } catch (e) { res.status(500).json({ message: e.message }); }
+});
 
 router.post('/', async (req, res) => {
   try { res.status(201).json(await Category.create(req.body)); }
@@ -16,8 +18,10 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  await Category.findByIdAndDelete(req.params.id);
-  res.json({ message: 'Deleted' });
+  try {
+    await Category.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Deleted' });
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 module.exports = router;
