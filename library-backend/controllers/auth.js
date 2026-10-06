@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { randomBytes } = require('node:crypto');
 const User = require('../models/User');
 const Session = require('../models/Session');
 const { createSession, publicUser } = require('../services/session');
@@ -29,36 +30,70 @@ exports.login = async (req, res) => {
   if (!user || !valid) return res.status(401).json({ message: 'Email or password is incorrect.' });
   res.json(await createSession(user));
 };
-exports.google = async (req, res) => {
+async function getGoogleProfile(credential) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const credential = req.body?.credential;
-  if (!clientId) return res.status(503).json({ message: 'Google sign-in is not configured on the server.' });
-  if (typeof credential !== 'string' || credential.length > 8192) return res.status(400).json({ message: 'Google sign-in response is invalid.' });
+  if (!clientId) throw Object.assign(new Error('Google sign-in is not configured on the server.'), { status: 503 });
+  if (typeof credential !== 'string' || credential.length > 8192) throw Object.assign(new Error('Google sign-in response is invalid.'), { status: 400 });
   let payload;
   try {
     payload = await verifyGoogleIdToken(credential, clientId);
   } catch {
-    return res.status(401).json({ message: 'Google could not verify this sign-in. Please try again.' });
+    throw Object.assign(new Error('Google could not verify this sign-in. Please try again.'), { status: 401 });
   }
   const email = payload?.email?.toLowerCase();
   const googleSub = payload?.sub;
   const googleAuthoritativeEmail = email?.endsWith('@gmail.com') || typeof payload?.hd === 'string';
-  if (!email || typeof googleSub !== 'string' || payload.email_verified !== true || !googleAuthoritativeEmail) return res.status(401).json({ message: 'Use a verified Gmail or Google Workspace address.' });
+  if (!email || typeof googleSub !== 'string' || payload.email_verified !== true || !googleAuthoritativeEmail) throw Object.assign(new Error('Use a verified Gmail or Google Workspace address.'), { status: 401 });
+  return { email, googleSub, name: typeof payload.name === 'string' ? clean(payload.name).slice(0, 120) : '' };
+}
+async function findOrLinkGoogleUser({ email, googleSub }) {
   let user = await User.findOne({ googleSub });
   if (!user) {
     user = await User.findOne({ email });
     if (user) {
-      if (user.googleSub && user.googleSub !== googleSub) return res.status(409).json({ message: 'This library email is linked to a different Google account.' });
+      if (user.googleSub && user.googleSub !== googleSub) throw Object.assign(new Error('This library email is linked to a different Google account.'), { status: 409 });
       user.googleSub = googleSub;
       try { await user.save(); }
       catch (error) {
-        if (error.code === 11000) return res.status(409).json({ message: 'This Google account is already linked to another library account.' });
+        if (error.code === 11000) throw Object.assign(new Error('This Google account is already linked to another library account.'), { status: 409 });
         throw error;
       }
     }
   }
-  if (!user) return res.status(404).json({ message: 'No library account uses this Google email yet. Create a library account first.' });
+  return user;
+}
+function sendGoogleError(res, error) {
+  return res.status(error.status || 500).json({ message: error.status ? error.message : 'Google sign-in failed. Please try again.' });
+}
+exports.google = async (req, res) => {
+  let profile;
+  try { profile = await getGoogleProfile(req.body?.credential); }
+  catch (error) { return sendGoogleError(res, error); }
+  let user;
+  try { user = await findOrLinkGoogleUser(profile); }
+  catch (error) { return sendGoogleError(res, error); }
+  if (!user) return res.json({ registrationRequired: true, profile: { name: profile.name, email: profile.email } });
   res.json(await createSession(user));
+};
+exports.googleRegister = async (req, res) => {
+  const studentId = clean(req.body?.studentId).toUpperCase();
+  const department = clean(req.body?.department);
+  if (!studentId || studentId.length > 50 || !department || department.length > 120 || req.body?.acceptedTerms !== true) return res.status(400).json({ message: 'Enter your student or staff ID, department, and accept the borrowing terms.' });
+  let profile;
+  try { profile = await getGoogleProfile(req.body?.credential); }
+  catch (error) { return sendGoogleError(res, error); }
+  let existing;
+  try { existing = await findOrLinkGoogleUser(profile); }
+  catch (error) { return sendGoogleError(res, error); }
+  if (existing) return res.json(await createSession(existing));
+  const passwordHash = await bcrypt.hash(randomBytes(32).toString('base64url'), 12);
+  try {
+    const user = await User.create({ name: profile.name || profile.email.split('@')[0], email: profile.email, googleSub: profile.googleSub, studentId, department, passwordHash });
+    return res.status(201).json(await createSession(user));
+  } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: 'An account with this email or student or staff ID already exists. Sign in with Google or check the ID.' });
+    throw error;
+  }
 };
 exports.me = async (req, res) => {
   const user = await User.findById(req.userId).lean();

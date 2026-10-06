@@ -39,8 +39,8 @@ export default function Login() {
     setBusy(true);
     setError('');
     try {
-      await loginWithGoogle(credential);
-      router.replace('/home');
+      const existingAccount = await loginWithGoogle(credential);
+      router.replace(existingAccount ? '/home' : '/signup');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Google sign-in failed.');
     } finally {
