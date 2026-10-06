@@ -221,3 +221,32 @@ exports.extendReservation = async (req, res) => {
     res.status(500).json({ message: 'Failed to extend reservation' });
   }
 };
+exports.releaseReservation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user } = req.body || {};
+
+    if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(user)) {
+      return res.status(400).json({ message: 'Valid reservation and user ids are required' });
+    }
+
+    const reservation = await Reservation.findOne({ _id: id, user });
+    if (!reservation) {
+      return res.status(404).json({ message: 'Reservation not found' });
+    }
+    if (reservation.status !== 'checked-in') {
+      return res.status(400).json({ message: 'Only a checked-in booking can be released early' });
+    }
+    if (reservation.endTime <= new Date()) {
+      return res.status(400).json({ message: 'This booking has already ended' });
+    }
+
+    reservation.status = 'released';
+    reservation.releasedAt = new Date();
+    await reservation.save();
+
+    res.json(reservation);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to release seat' });
+  }
+};
