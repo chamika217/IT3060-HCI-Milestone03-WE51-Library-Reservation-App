@@ -63,3 +63,107 @@ export interface NotificationPreferences {
   emailSummaries: boolean;
   quietHoursEnabled: boolean;
 }
+
+// ─── API request / response types ────────────────────────────────────────────
+// These extend the existing domain types with shapes that match the
+// actual JSON returned by the Express backend.
+
+/** Returned by POST /api/auth/register and POST /api/auth/login */
+export interface AuthResponse {
+  token: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    studentId: string;
+    role?: string;
+  };
+}
+
+/** Credentials for POST /api/auth/login */
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+/** Credentials for POST /api/auth/register */
+export interface RegisterPayload {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string;
+  studentId: string;
+  program?: string;
+  semester?: string;
+}
+
+/** Returned by GET /api/users/:id */
+export interface ApiUserProfile {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  studentId: string;
+  program: string;
+  semester: string;
+  avatarInitials: string;
+  isEmailVerified: boolean;
+  role: string;
+  stats: {
+    holdings: number;
+    bookings: number;
+    alerts: number;
+  };
+  notificationPreferences: ApiNotificationPreferences;
+  createdAt: string;
+}
+
+/** Notification preferences shape stored in the DB / returned by GET /api/users/:id */
+export interface ApiNotificationPreferences {
+  pushEnabled: boolean;
+  bookHolds: boolean;
+  seatAlerts: boolean;
+  dueDateReminders: boolean;
+  cancellationNotices: boolean;
+  emailSummaries: boolean;
+  quietHoursEnabled: boolean;
+}
+
+/** Fields accepted by PUT /api/users/:id */
+export interface ProfileUpdatePayload {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  program?: string;
+  semester?: string;
+}
+
+/** Fields accepted by PUT /api/users/:id/password */
+export interface PasswordChangePayload {
+  oldPassword: string;
+  newPassword: string;
+}
+
+/** Body accepted by POST /api/contact */
+export interface ContactMessagePayload {
+  userId: string;
+  subject: 'Book Reservation' | 'Seat Booking' | 'Account Issue' | 'General Inquiry';
+  message: string;
+  attachmentUrl?: string;
+}
+
+/** Shape returned by GET /api/contact/:userId */
+export interface ApiContactMessage {
+  _id: string;
+  userId: string;
+  subject: string;
+  message: string;
+  attachmentUrl: string | null;
+  status: 'open' | 'resolved';
+  createdAt: string;
+}
+
+/** Generic API error shape */
+export interface ApiError {
+  message: string;
+}
