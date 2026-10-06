@@ -93,7 +93,6 @@ function QuickActionPill({ label, accentColor, onPress }: QuickActionPillProps) 
 
   return (
     <View
-      accessibilityRole="button"
       accessibilityLabel={label}
       onStartShouldSetResponder={onStartShouldSetResponder}
       onResponderGrant={onResponderGrant}
@@ -104,7 +103,11 @@ function QuickActionPill({ label, accentColor, onPress }: QuickActionPillProps) 
         { borderColor: accentColor },
         pressed && styles.quickActionPressed,
       ]}
-      // Spread web-only props — on native these keys are ignored
+      // Spread web-only props — on native these keys are ignored.
+      // Note: we deliberately do NOT set accessibilityRole="button" here
+      // because on web that would render as <button> and nest inside the
+      // card's outer <button> (Pressable). The role="button" in webProps
+      // is a plain HTML attribute on a <div>, which is valid.
       {...(webProps as object)}
     >
       <Text style={[styles.quickActionText, { color: accentColor }]}>
