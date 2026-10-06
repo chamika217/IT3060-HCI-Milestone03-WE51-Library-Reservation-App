@@ -10,6 +10,7 @@ export default function Home() {
   const { demo, name, books, holds, user } = library;
   const ref = useRef(library);
   const [error, setError] = useState('');
+  const [serviceInfo, setServiceInfo] = useState('');
   const wide = useWindowDimensions().width >= 900;
 
   useEffect(() => { ref.current = library; }, [library]);
@@ -18,8 +19,10 @@ export default function Home() {
   }, []));
 
   const services = [
-    { title: 'Search books', copy: 'Find your next read', icon: 'search' as const, route: '/books' as const, color: c.primary, surface: c.primarySoft },
-    { title: 'My holds', copy: 'Pickup information', icon: 'archive' as const, route: '/books/reservations' as const, color: c.success, surface: c.successSoft },
+    { title: 'Search Books', copy: 'Stacks & shelf map', icon: 'search' as const, color: c.primary, surface: c.primarySoft, onPress: () => router.push('/books') },
+    { title: 'Reserve Pod', copy: 'Quiet study booths', icon: 'calendar' as const, color: c.warning, surface: c.warningSoft, onPress: () => setServiceInfo('Pod reservations are not available in this portal yet. Please ask at the library service desk.') },
+    { title: `My Holds (${holds.length})`, copy: 'Pickup information and collection codes', icon: 'archive' as const, color: c.success, surface: c.successSoft, onPress: () => router.push('/books/reservations') },
+    { title: 'Reader Pass', copy: user?.studentId ? `Library ID · ${user.studentId}` : 'Membership and library ID', icon: 'credit-card' as const, color: c.text, surface: c.card, onPress: () => router.push('/profile') },
   ];
 
   return (
@@ -54,20 +57,28 @@ export default function Home() {
       </View>
 
       <Section title="Quick services" />
-      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 12 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         {services.map(item => (
           <Pressable
             key={item.title}
             accessibilityRole="button"
-            onPress={() => router.push(item.route)}
-            style={({ pressed }) => [u.card, { flex: 1, backgroundColor: item.surface, borderColor: item.surface }, pressed && { opacity: 0.82 }]}
+            onPress={item.onPress}
+            style={({ pressed }) => [u.card, { flexGrow: 1, flexBasis: wide ? '46%' : '100%', minWidth: wide ? 240 : 0, backgroundColor: item.surface, borderColor: c.border, minHeight: 132 }, pressed && { opacity: 0.82 }]}
           >
-            <Icon name={item.icon} color={item.color} />
+            <View style={u.between}>
+              <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name={item.icon} color={item.color} size={18} />
+              </View>
+              {item.title.startsWith('My Holds') && <Badge tone="success">{holds.length} ACTIVE</Badge>}
+              {item.title === 'Reader Pass' && <Badge tone={user ? 'success' : 'info'}>{user ? 'MEMBER' : 'PROFILE'}</Badge>}
+              {item.title === 'Reserve Pod' && <Badge tone="warning">COMING SOON</Badge>}
+            </View>
             <Text style={u.heading}>{item.title}</Text>
             <Text style={u.small}>{item.copy}</Text>
           </Pressable>
         ))}
       </View>
+      {!!serviceInfo && <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: c.warningSoft, padding: 14 }}><Icon name="info" color={c.warning} size={17} /><Text style={[u.small, { flex: 1 }]}>{serviceInfo}</Text><Pressable accessibilityRole="button" accessibilityLabel="Dismiss message" onPress={() => setServiceInfo('')}><Icon name="x" color={c.secondary} size={17} /></Pressable></View>}
 
       <Section title={demo ? 'Discover the collection' : 'Explore your library'} action="See all" onPress={() => router.push('/books')} />
       {books.length ? books.slice(0, 3).map(book => <BookResult key={book.id} book={book} />) : (
