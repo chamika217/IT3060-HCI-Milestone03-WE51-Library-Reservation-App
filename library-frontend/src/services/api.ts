@@ -11,9 +11,9 @@
  *       Mac/Linux → ifconfig | grep "inet "
  *
  * Auth:
- *   Call setAuthToken(token) after login/register.
- *   All subsequent requests will include the Bearer token automatically.
- *   Call clearAuthToken() on sign-out.
+ *   For now, TEST_TOKEN from @/constants/testAuth is used automatically.
+ *   Once a real login screen exists, call setAuthToken(token) after login
+ *   and remove the TEST_TOKEN import.
  */
 
 import {
@@ -28,16 +28,22 @@ import {
   LoginPayload,
   RegisterPayload,
 } from '@/features/notifications/types';
+import { TEST_TOKEN } from '@/constants/testAuth';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 export const API_BASE_URL = 'http://localhost:5000/api';
-// ↑ Update to your LAN IP when testing on a physical device via Expo Go.
-// Example: export const API_BASE_URL = 'http://192.168.1.42:5000/api';
+// ↑ IMPORTANT: When testing on a physical device via Expo Go, change
+//   'localhost' to your development machine's LAN IP address.
+//   Expo Go runs on the phone — it cannot resolve 'localhost' to your laptop.
+//   Example: 'http://192.168.1.42:5000/api'
+//   Find your LAN IP: Windows → run `ipconfig`, look for "IPv4 Address".
 
 // ─── Token store ──────────────────────────────────────────────────────────────
 
-let _authToken: string | null = null;
+// Seeded with the test token so every request is authenticated immediately.
+// TODO: replace with token from auth context once login screen is built.
+let _authToken: string | null = TEST_TOKEN;
 
 export function setAuthToken(token: string) {
   _authToken = token;
