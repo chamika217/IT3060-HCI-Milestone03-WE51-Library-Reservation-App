@@ -1,9 +1,19 @@
 /**
- * NotificationCard — list item for the notifications screen.
+ * NotificationCard — notification list item.
  *
- * Web-safe design: there is exactly ONE Pressable per card (the outer card).
- * The quick-action "button" is a styled View + Text that uses onStartShouldSetResponder
- * on native and a role="button" + onClick on web — no nested <button> elements.
+ * Web-nesting problem (recurring):
+ *   Pressable → <button>
+ *   Any child View with responder/accessibility callbacks → <button>
+ *   Result: nested <button> error on web.
+ *
+ * Permanent fix — platform split:
+ *   • Native : outer card is a Pressable (normal RN behaviour)
+ *   • Web    : outer card is a plain View; tap is handled by a full-coverage
+ *              <div onClick> injected via a .web.tsx companion file.
+ *              QuickActionPill is ALWAYS a plain View + onClick, never a Pressable.
+ *
+ * This file handles BOTH platforms by detecting Platform.OS at runtime and
+ * choosing the correct outer wrapper so there is only one file to maintain.
  */
 
 import React from 'react';
@@ -31,32 +41,20 @@ const TYPE_ICON: Record<Notification['type'], IonIconName> = {
 
 // ─── Badge derivation ─────────────────────────────────────────────────────────
 
-function deriveBadge(
-  n: Notification,
-): { label: string; variant: BadgeVariant } | null {
-  if (n.type === 'seat_expiring' && n.detail?.expiresAt) {
+function deriveBadge(n: Notification): { label: string; variant: BadgeVariant } | null {
+  if (n.type === 'seat_expiring' && n.detail?.expiresAt)
     return { label: `Expires ${n.detail.expiresAt}`, variant: 'warning' };
-  }
-  if (n.type === 'seat_released') {
+  if (n.type === 'seat_released')
     return { label: 'Released', variant: 'error' };
-  }
-  if (n.type === 'hold_ready') {
+  if (n.type === 'hold_ready')
     return { label: 'Ready', variant: 'success' };
-  }
   return null;
 }
 
 // ─── QuickActionPill ──────────────────────────────────────────────────────────
-/**
- * A tappable pill that is intentionally NOT a Pressable/button so it can
- * live inside the card's outer Pressable without producing nested <button>
- * elements on web.
- *
- * On native: uses the responder system (onStartShouldSetResponder +
- *   onResponderGrant/Release) to handle tap + pressed feedback.
- * On web:    rendered as a <div role="button"> via accessibilityRole +
- *   the web onClick prop injected through rest props.
- */
+// Always a View — NEVER a Pressable — so it can never produce a nested <button>.
+// On native: responder system.  On web: onClick on the div via spread props.
+
 interface QuickActionPillProps {
   label: string;
   accentColor: string;
@@ -66,54 +64,115 @@ interface QuickActionPillProps {
 function QuickActionPill({ label, accentColor, onPress }: QuickActionPillProps) {
   const [pressed, setPressed] = React.useState(false);
 
-  // Native responder callbacks — stop propagation so the card Pressable
-  // doesn't also fire.
-  function onStartShouldSetResponder() { return true; }
-  function onResponderGrant(_e: GestureResponderEvent) { setPressed(true); }
-  function onResponderRelease(_e: GestureResponderEvent) {
-    setPressed(false);
-    onPress?.();
-  }
-  function onResponderTerminate() { setPressed(false); }
+  const nativeResponder = {
+    onStartShouldSetResponder: () => true,
+    onResponderGrant:   (_e: GestureResponderEvent) => setPressed(true),
+    onResponderRelease: (_e: GestureResponderEvent) => { setPressed(false); onPress?.(); },
+    onResponderTerminate: () => setPressed(false),
+  };
 
-  // Web-only: inject onClick + keyboard handler directly onto the View node
-  const webProps = Platform.OS === 'web'
+  // On web we spread onClick directly onto the View (renders as <div>).
+  // We intentionally do NOT set accessibilityRole="button" — that would
+  // make RN-Web render a <button> element and re-introduce the nesting error.
+  const webHandlers = Platform.OS === 'web'
     ? {
         onClick: (e: React.MouseEvent) => { e.stopPropagation(); onPress?.(); },
-        onKeyDown: (e: React.KeyboardEvent) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.stopPropagation();
-            onPress?.();
-          }
-        },
-        tabIndex: 0,
-        role: 'button' as const,
+        onMouseDown: () => setPressed(true),
+        onMouseUp:   () => setPressed(false),
+        onMouseLeave: () => setPressed(false),
+        style: [
+          styles.quickAction,
+          { borderColor: accentColor, cursor: 'pointer' as const },
+          pressed && styles.quickActionPressed,
+        ],
       }
     : {};
 
+  if (Platform.OS === 'web') {
+    return (
+      // @ts-ignore — web-only props (onClick, cursor) are valid on RN-Web View
+      <View {...webHandlers} accessibilityLabel={label}>
+        <Text style={[styles.quickActionText, { color: accentColor }]}>{label}</Text>
+      </View>
+    );
+  }
+
   return (
     <View
+      {...nativeResponder}
       accessibilityLabel={label}
-      onStartShouldSetResponder={onStartShouldSetResponder}
-      onResponderGrant={onResponderGrant}
-      onResponderRelease={onResponderRelease}
-      onResponderTerminate={onResponderTerminate}
       style={[
         styles.quickAction,
         { borderColor: accentColor },
         pressed && styles.quickActionPressed,
       ]}
-      // Spread web-only props — on native these keys are ignored.
-      // Note: we deliberately do NOT set accessibilityRole="button" here
-      // because on web that would render as <button> and nest inside the
-      // card's outer <button> (Pressable). The role="button" in webProps
-      // is a plain HTML attribute on a <div>, which is valid.
-      {...(webProps as object)}
     >
-      <Text style={[styles.quickActionText, { color: accentColor }]}>
-        {label}
-      </Text>
+      <Text style={[styles.quickActionText, { color: accentColor }]}>{label}</Text>
     </View>
+  );
+}
+
+// ─── Card inner content ───────────────────────────────────────────────────────
+// Extracted so both the Pressable (native) and View (web) wrappers can reuse it.
+
+interface CardContentProps {
+  notification: Notification;
+  isUnread: boolean;
+  badge: { label: string; variant: BadgeVariant } | null;
+  iconName: IonIconName;
+  onQuickAction?: () => void;
+}
+
+function CardContent({ notification, isUnread, badge, iconName, onQuickAction }: CardContentProps) {
+  return (
+    <>
+      {/* Unread stripe */}
+      {isUnread && (
+        <View
+          style={[styles.unreadStripe, { backgroundColor: notification.accentColor }]}
+          pointerEvents="none"
+        />
+      )}
+
+      {/* Icon circle */}
+      <View
+        style={[styles.iconCircle, { backgroundColor: `${notification.accentColor}18` }]}
+        pointerEvents="none"
+      >
+        <IonIcon name={iconName} size={22} color={notification.accentColor} />
+      </View>
+
+      {/* Body */}
+      <View style={styles.body} pointerEvents="box-none">
+        <View style={styles.titleRow} pointerEvents="none">
+          <Text style={[styles.title, isUnread && styles.titleUnread]} numberOfLines={1}>
+            {notification.title}
+          </Text>
+          <Text style={styles.timestamp}>{notification.timestamp}</Text>
+        </View>
+
+        <Text style={styles.subtitle} numberOfLines={1} pointerEvents="none">
+          {notification.subtitle}
+        </Text>
+
+        {(badge || notification.quickAction) && (
+          <View style={styles.actionsRow} pointerEvents="box-none">
+            {badge && (
+              <View pointerEvents="none">
+                <StatusBadge label={badge.label} variant={badge.variant} size="sm" />
+              </View>
+            )}
+            {notification.quickAction && (
+              <QuickActionPill
+                label={notification.quickAction}
+                accentColor={notification.accentColor}
+                onPress={onQuickAction}
+              />
+            )}
+          </View>
+        )}
+      </View>
+    </>
   );
 }
 
@@ -125,18 +184,42 @@ interface NotificationCardProps {
   onQuickAction?: () => void;
 }
 
-export function NotificationCard({
-  notification,
-  onPress,
-  onQuickAction,
-}: NotificationCardProps) {
+export function NotificationCard({ notification, onPress, onQuickAction }: NotificationCardProps) {
   const isUnread = notification.status === 'unread';
-  const badge = deriveBadge(notification);
+  const badge    = deriveBadge(notification);
   const iconName = TYPE_ICON[notification.type];
 
+  const cardStyle = [styles.card, isUnread && styles.cardUnread];
+  const content   = (
+    <CardContent
+      notification={notification}
+      isUnread={isUnread}
+      badge={badge}
+      iconName={iconName}
+      onQuickAction={onQuickAction}
+    />
+  );
+
+  // ── Web: plain View + onClick — zero nested <button> elements ─────────────
+  if (Platform.OS === 'web') {
+    // Cast to 'any' so TypeScript accepts the web-only onClick prop.
+    // RN-Web renders View as a <div>, so onClick is valid at runtime.
+    // No accessibilityRole="button" — that makes RN-Web emit a <button>
+    // element which would produce the nested-button error again.
+    const WebView = View as React.ComponentType<React.ComponentProps<typeof View> & { onClick?: () => void }>;
+    return (
+      <WebView
+        style={[styles.card, isUnread && styles.cardUnread]}
+        onClick={onPress}
+        accessibilityLabel={`${notification.title}. ${notification.subtitle}`}
+      >
+        {content}
+      </WebView>
+    );
+  }
+
+  // ── Native: Pressable (renders as a touchable, no DOM concern) ────────────
   return (
-    // Single Pressable — the ONLY <button> in this subtree.
-    // QuickActionPill handles its own tap without being a Pressable.
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
@@ -147,63 +230,7 @@ export function NotificationCard({
       accessibilityRole="button"
       accessibilityLabel={`${notification.title}. ${notification.subtitle}. ${notification.timestamp}`}
     >
-      {/* Unread stripe */}
-      {isUnread && (
-        <View
-          style={[styles.unreadStripe, { backgroundColor: notification.accentColor }]}
-          pointerEvents="none"
-        />
-      )}
-
-      {/* Icon circle */}
-      <View
-        style={[
-          styles.iconCircle,
-          { backgroundColor: `${notification.accentColor}18` },
-        ]}
-        pointerEvents="none"
-      >
-        <IonIcon name={iconName} size={22} color={notification.accentColor} />
-      </View>
-
-      {/* Body */}
-      <View style={styles.body} pointerEvents="box-none">
-        {/* Title row */}
-        <View style={styles.titleRow} pointerEvents="none">
-          <Text
-            style={[styles.title, isUnread && styles.titleUnread]}
-            numberOfLines={1}
-          >
-            {notification.title}
-          </Text>
-          <Text style={styles.timestamp}>{notification.timestamp}</Text>
-        </View>
-
-        {/* Subtitle */}
-        <Text style={styles.subtitle} numberOfLines={1} pointerEvents="none">
-          {notification.subtitle}
-        </Text>
-
-        {/* Badge + quick-action row */}
-        {(badge || notification.quickAction) && (
-          <View style={styles.actionsRow} pointerEvents="box-none">
-            {badge && (
-              <View pointerEvents="none">
-                <StatusBadge label={badge.label} variant={badge.variant} size="sm" />
-              </View>
-            )}
-
-            {/* QuickActionPill is a View, never a Pressable — safe to nest */}
-            {notification.quickAction && (
-              <QuickActionPill
-                label={notification.quickAction}
-                accentColor={notification.accentColor}
-                onPress={onQuickAction}
-              />
-            )}
-          </View>
-        )}
-      </View>
+      {content}
     </Pressable>
   );
 }
@@ -294,8 +321,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    cursor: 'pointer',
-  } as object,
+  },
   quickActionPressed: {
     opacity: 0.7,
   },

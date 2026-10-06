@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# Temporary hardcoded test credentials — never commit real tokens
+src/constants/testAuth.ts
