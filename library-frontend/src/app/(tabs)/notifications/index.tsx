@@ -2,16 +2,17 @@
  * Screen 1 — Notifications List  (+ empty state)
  * Route: /(tabs)/notifications/
  *
- * Data: MOCK_NOTIFICATIONS array — swap for GET /api/notifications
+ * Data: real API via getNotifications() — was MOCK_NOTIFICATIONS array.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -22,12 +23,14 @@ import {
   IonIcon,
   StatusBadge,
 } from '@/components/notifications';
-import {
-  MOCK_NOTIFICATIONS,
-  filterByTab,
-  getUnreadCount,
-} from '@/features/notifications/mockData';
+import { filterByTab, getUnreadCount } from '@/features/notifications/mockData';
 import { Notification } from '@/features/notifications/types';
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from '@/services/api';
+import { TEST_USER_ID } from '@/constants/testAuth';
 
 // ─── Filter tab type ──────────────────────────────────────────────────────────
 
@@ -45,15 +48,32 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
 
-  // Local state — replace useState initialiser with an API call via useEffect
-  const [notifications, setNotifications] =
-    useState<Notification[]>(MOCK_NOTIFICATIONS);
-  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [activeTab,     setActiveTab]     = useState<FilterTab>('all');
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState<string | null>(null);
+
+  // ── Fetch ──────────────────────────────────────────────────────────────
+  const fetchNotifications = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getNotifications(TEST_USER_ID);
+      setNotifications(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load notifications.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const unreadCount = getUnreadCount(notifications);
-  const filtered = filterByTab(notifications, activeTab);
+  const filtered    = filterByTab(notifications, activeTab);
 
-  // Count per tab for badges
   const counts: Record<FilterTab, number> = {
     all:    notifications.length,
     books:  filterByTab(notifications, 'books').length,
@@ -61,19 +81,83 @@ export default function NotificationsScreen() {
     system: filterByTab(notifications, 'system').length,
   };
 
-  function handleMarkAllRead() {
+  // ── Mark all read ──────────────────────────────────────────────────────
+  async function handleMarkAllRead() {
+    // Optimistic update
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, status: 'read' as const })),
     );
+    try {
+      await markAllNotificationsRead(TEST_USER_ID);
+    } catch {
+      // Revert on failure by re-fetching
+      fetchNotifications();
+    }
   }
 
+  // ── Card tap — navigate + optimistically mark read ─────────────────────
   function handleCardPress(id: string) {
+    // Optimistic: flip to read immediately in the list
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.id === id ? { ...n, status: 'read' as const } : n,
+      ),
+    );
+    // Fire-and-forget — sync with server in the background
+    markNotificationRead(String(id)).catch(() => {
+      // Non-critical: if it fails the next fetch will correct state
+    });
     router.push(`/(tabs)/notifications/${id}` as never);
   }
 
   function handleQuickAction(id: string) {
     // Stub — wire to PUT /api/seats/:id/extend
     console.log('Quick action for notification', id);
+  }
+
+  // ── Loading state ──────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.heading}>Notifications</Text>
+              <Text style={styles.subheading}>Loading…</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.centeredFill}>
+          <ActivityIndicator size="large" color="#2D7CE9" />
+        </View>
+        <BottomNavBar activeTab="alerts" unreadCount={0} />
+      </View>
+    );
+  }
+
+  // ── Error state ────────────────────────────────────────────────────────
+  if (error) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <View style={styles.headerTop}>
+            <Text style={styles.heading}>Notifications</Text>
+          </View>
+        </View>
+        <View style={styles.centeredFill}>
+          <IonIcon name="alert-circle-outline" size={40} color="#F04F55" />
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable
+            onPress={fetchNotifications}
+            style={({ pressed }) => [styles.retryBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.retryBtnText}>Try Again</Text>
+          </Pressable>
+        </View>
+        <BottomNavBar activeTab="alerts" unreadCount={0} />
+      </View>
+    );
   }
 
   const isEmpty = filtered.length === 0;
@@ -613,5 +697,31 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.75,
+  },
+
+  // Loading / error states
+  centeredFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    padding: 24,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#F04F55',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryBtn: {
+    backgroundColor: '#2D7CE9',
+    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 28,
+  },
+  retryBtnText: {
+    color: '#FAFBFB',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });
