@@ -24,10 +24,40 @@ const covers = [
 	require('../../../assets/book-covers/cover-18.jpg'),
 	require('../../../assets/book-covers/cover-19.jpg'),
 	require('../../../assets/book-covers/cover-20.jpg'),
+	require('../../../assets/book-covers/cover-21.jpg'),
+	require('../../../assets/book-covers/cover-22.jpg'),
+	require('../../../assets/book-covers/cover-23.jpg'),
+	require('../../../assets/book-covers/cover-24.jpg'),
+	require('../../../assets/book-covers/cover-25.jpg'),
+	require('../../../assets/book-covers/cover-26.jpg'),
+	require('../../../assets/book-covers/cover-27.jpg'),
+	require('../../../assets/book-covers/cover-28.jpg'),
+	require('../../../assets/book-covers/cover-29.jpg'),
+	require('../../../assets/book-covers/cover-30.jpg'),
+	require('../../../assets/book-covers/cover-31.jpg'),
+	require('../../../assets/book-covers/cover-32.jpg'),
+	require('../../../assets/book-covers/cover-33.jpg'),
+	require('../../../assets/book-covers/cover-34.jpg'),
+	require('../../../assets/book-covers/cover-35.jpg'),
+	require('../../../assets/book-covers/cover-36.jpg'),
+	require('../../../assets/book-covers/cover-37.jpg'),
+	require('../../../assets/book-covers/cover-38.jpg'),
+	require('../../../assets/book-covers/cover-39.jpg'),
+	require('../../../assets/book-covers/cover-40.jpg'),
+	require('../../../assets/book-covers/cover-41.jpg'),
+	require('../../../assets/book-covers/cover-42.jpg'),
+	require('../../../assets/book-covers/cover-43.jpg'),
+	require('../../../assets/book-covers/cover-44.jpg'),
+	require('../../../assets/book-covers/cover-45.jpg'),
+	require('../../../assets/book-covers/cover-46.jpg'),
+	require('../../../assets/book-covers/cover-47.jpg'),
+	require('../../../assets/book-covers/cover-48.jpg'),
+	require('../../../assets/book-covers/cover-49.jpg'),
+	require('../../../assets/book-covers/cover-50.jpg'),
 ];
 
 export default function BookCover({ book, large = false }: { book: Book; large?: boolean }) {
-	const cover = covers[Number(book.id) - 1];
+	const cover = covers[(book.cover ?? Number(book.id)) - 1];
 	const width = large ? 106 : 62;
 	const height = large ? 144 : 86;
 
