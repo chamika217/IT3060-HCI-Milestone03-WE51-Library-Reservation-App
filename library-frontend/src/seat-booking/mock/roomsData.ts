@@ -1,16 +1,23 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const Room = require('./models/Room');
-const Seat = require('./models/Seat');
+import { CampusDensity, FilterTabOption, Room } from '../types/seatBooking';
 
-async function seed() {
-  await mongoose.connect(process.env.MONGODB_URI);
-  console.log('Connected to MongoDB');
+export const INITIAL_CAMPUS_DENSITY: CampusDensity = {
+  occupiedPercent: 58,
+  openSeats: 94,
+  statusLabel: 'Active',
+  buildingName: 'Malabe Main Library Complex New Building.',
+};
 
-  await Seat.deleteMany({});
-  await Room.deleteMany({});
+export const CATEGORY_TABS: FilterTabOption[] = [
+  { id: 'all', label: 'All Rooms' },
+  { id: 'silent-study', label: 'Silent Study' },
+  { id: 'discussion-pod', label: 'Discussion Pods' },
+  { id: 'group-hub', label: 'Group Hub' },
+  { id: 'special-needs', label: 'Special Needs' },
+];
 
-  const room1 = await Room.create({
+export const MOCK_ROOMS: Room[] = [
+  {
+    _id: 'mock-1',
     code: 'L2-NORTH',
     name: 'Individual Study',
     level: 1,
@@ -21,11 +28,11 @@ async function seed() {
     floorDensity: 70,
     amenities: ['Wi-Fi', 'Power Outlets', 'AC 21°C', 'Strict Silence'],
     footerNote: 'Peak: 13:00 - 16:00',
-    iconName: 'volume-off',
+    iconName: 'volume-mute-outline',
     statusType: 'open',
-  });
-
-  const room2 = await Room.create({
+  },
+  {
+    _id: 'mock-2',
     code: 'L3-CENTRAL',
     name: 'Reading and Study Area',
     level: 3,
@@ -36,11 +43,11 @@ async function seed() {
     floorDensity: 55,
     amenities: ['Wi-Fi', 'Power Outlets', 'AC 22°C'],
     footerNote: 'Optimal Light: Now',
-    iconName: 'bookmark',
+    iconName: 'bookmark-outline',
     statusType: 'normal',
-  });
-
-  const room3 = await Room.create({
+  },
+  {
+    _id: 'mock-3',
     code: 'L1-SOUTH',
     name: 'Group Collaborative Hub',
     level: 2,
@@ -51,11 +58,11 @@ async function seed() {
     floorDensity: 25,
     amenities: ['Whiteboards', 'Screen Share', 'Staff only'],
     footerNote: 'Staff ID Verification',
-    iconName: 'chat',
+    iconName: 'chatbubbles-outline',
     statusType: 'open',
-  });
-
-  const room4 = await Room.create({
+  },
+  {
+    _id: 'mock-4',
     code: 'L4-PENTHOUSE',
     name: 'Special Needs Study Area',
     level: 4,
@@ -66,31 +73,7 @@ async function seed() {
     floorDensity: 93,
     amenities: ['Reference', 'Ergonomic Chairs', 'Lockers'],
     footerNote: 'Moderate Audio Zone',
-    iconName: 'download',
+    iconName: 'archive-outline',
     statusType: 'crowded',
-  });
-
-  const seats = [];
-  const rooms = [room1, room2, room3, room4];
-
-  for (const rm of rooms) {
-    for (let i = 1; i <= Math.min(rm.totalSeats, 10); i++) {
-      seats.push({
-        room: rm._id,
-        seatNumber: `${rm.code.substring(0, 2)}-S${String(i).padStart(2, '0')}`,
-        pod: i <= 5 ? 'A' : 'B',
-        features: rm.amenities.slice(0, 2),
-      });
-    }
-  }
-
-  await Seat.insertMany(seats);
-  console.log(`Successfully seeded ${rooms.length} rooms and ${seats.length} seats.`);
-
-  await mongoose.disconnect();
-}
-
-seed().catch((err) => {
-  console.error('Seed failed:', err);
-  process.exit(1);
-});
+  },
+];

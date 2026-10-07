@@ -1,5 +1,5 @@
 import ReadingRoomsScreen from '@/seat-booking/screens/ReadingRoomsScreen';
 
-export default function HomeScreen() {
+export default function SeatsScreenRoute() {
   return <ReadingRoomsScreen />;
 }
