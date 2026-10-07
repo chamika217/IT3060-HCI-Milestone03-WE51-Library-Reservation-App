@@ -2,10 +2,10 @@
  * Screen 7 — Edit Profile
  * Route: /(tabs)/profile/edit
  *
- * handleSave is structured to later PUT to /api/users/profile.
+ * Fetches real profile on mount; saves via PUT /api/users/:id.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,12 +16,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { ScreenHeader, StatusBadge, BottomNavBar, IonIcon } from '@/components/shared';
-import { MOCK_PROFILE } from '@/features/profile/mockData';
+import { getUserProfile, updateUserProfile } from '@/services/api';
+import { ApiUserProfile } from '@/features/notifications/types';
+import { TEST_USER_ID } from '@/constants/testAuth';
 
 // ─── Field wrapper ────────────────────────────────────────────────────────────
 
@@ -40,7 +43,7 @@ function Field({ label, hint, children }: FieldProps) {
   );
 }
 const fieldStyles = StyleSheet.create({
-  wrap: { gap: 5 },
+  wrap:  { gap: 5 },
   label: { fontSize: 12, fontWeight: '600', color: '#6C7886', letterSpacing: 0.2 },
   hint:  { fontSize: 11, color: '#6C7886', lineHeight: 15 },
 });
@@ -49,29 +52,60 @@ const fieldStyles = StyleSheet.create({
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
-  const [fullName, setFullName] = useState(MOCK_PROFILE.fullName);
-  const [phone,    setPhone]    = useState(MOCK_PROFILE.phone);
+
+  const [profile,  setProfile]  = useState<ApiUserProfile | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [fullName, setFullName] = useState('');
+  const [phone,    setPhone]    = useState('');
   const [saving,   setSaving]   = useState(false);
 
+  // Fetch profile and seed form fields
+  useEffect(() => {
+    getUserProfile(TEST_USER_ID)
+      .then((p) => {
+        setProfile(p);
+        setFullName(p.fullName);
+        setPhone(p.phone);
+      })
+      .catch(() =>
+        Alert.alert('Error', 'Could not load profile. Please go back and try again.'),
+      )
+      .finally(() => setLoading(false));
+  }, []);
+
   async function handleSave() {
+    if (!fullName.trim()) {
+      Alert.alert('Validation', 'Full name cannot be empty.');
+      return;
+    }
     setSaving(true);
     try {
-      // TODO: PUT /api/users/profile
-      // await fetch('http://localhost:5000/api/users/profile', {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ fullName, phone }),
-      // });
-      await new Promise((r) => setTimeout(r, 500));
+      await updateUserProfile(TEST_USER_ID, { fullName: fullName.trim(), phone: phone.trim() });
       Alert.alert('Saved', 'Your profile has been updated.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch {
-      Alert.alert('Error', 'Could not save changes. Please try again.');
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Could not save changes.');
     } finally {
       setSaving(false);
     }
   }
+
+  if (loading) {
+    return (
+      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScreenHeader title="Edit Profile" onBack={() => router.back()} />
+        <View style={styles.centeredFill}>
+          <ActivityIndicator size="large" color="#2D7CE9" />
+        </View>
+        <BottomNavBar activeTab="profile" unreadCount={0} />
+      </KeyboardAvoidingView>
+    );
+  }
+
+  const initials = profile?.avatarInitials ?? '?';
+  const email    = profile?.email          ?? '';
+  const studentId = profile?.studentId     ?? '';
 
   return (
     <KeyboardAvoidingView
@@ -82,17 +116,14 @@ export default function EditProfileScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 100 },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Avatar section ───────────────────────────────────── */}
+        {/* ── Avatar ───────────────────────────────────────────── */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{MOCK_PROFILE.avatarInitials}</Text>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Change photo">
             <Text style={styles.changePhoto}>Change Photo</Text>
@@ -121,7 +152,7 @@ export default function EditProfileScreen() {
             <View style={styles.inputRow}>
               <TextInput
                 style={[styles.input, styles.inputFlex]}
-                value={MOCK_PROFILE.email}
+                value={email}
                 editable={false}
                 selectTextOnFocus={false}
                 placeholderTextColor="#6C7886"
@@ -133,10 +164,7 @@ export default function EditProfileScreen() {
 
           <View style={styles.fieldDivider} />
 
-          <Field
-            label="Phone Number"
-            hint="Used for SMS rate alerts and urgent notices"
-          >
+          <Field label="Phone Number" hint="Used for SMS rate alerts and urgent notices">
             <TextInput
               style={styles.input}
               value={phone}
@@ -151,36 +179,27 @@ export default function EditProfileScreen() {
 
           <View style={styles.fieldDivider} />
 
-          <Field
-            label="Student ID"
-            hint="Contact the Office of the Registrar to update your Student ID"
-          >
+          <Field label="Student ID" hint="Contact the Office of the Registrar to update your Student ID">
             <View style={styles.inputRow}>
               <View style={[styles.input, styles.inputFlex, styles.inputLocked]}>
-                <Text style={styles.inputLockedText}>{MOCK_PROFILE.studentId}</Text>
+                <Text style={styles.inputLockedText}>{studentId}</Text>
               </View>
               <IonIcon name="lock-closed" size={16} color="#6C7886" />
             </View>
           </Field>
         </View>
 
-        {/* ── Save button ──────────────────────────────────────── */}
+        {/* ── Save ─────────────────────────────────────────────── */}
         <Pressable
           onPress={handleSave}
           disabled={saving}
-          style={({ pressed }) => [
-            styles.btnSave,
-            (pressed || saving) && styles.btnSavePressed,
-          ]}
+          style={({ pressed }) => [styles.btnSave, (pressed || saving) && styles.btnSavePressed]}
           accessibilityRole="button"
           accessibilityLabel="Save changes"
         >
-          <Text style={styles.btnSaveText}>
-            {saving ? 'Saving…' : 'Save Changes'}
-          </Text>
+          <Text style={styles.btnSaveText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </Pressable>
 
-        {/* ── Cancel link ──────────────────────────────────────── */}
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.cancelLink, pressed && styles.pressed]}
@@ -191,7 +210,7 @@ export default function EditProfileScreen() {
         </Pressable>
       </ScrollView>
 
-      <BottomNavBar activeTab="profile" unreadCount={MOCK_PROFILE.stats.alerts} />
+      <BottomNavBar activeTab="profile" unreadCount={profile?.stats.alerts ?? 0} />
     </KeyboardAvoidingView>
   );
 }
@@ -199,46 +218,17 @@ export default function EditProfileScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F5F7F7',
-  },
-  scroll: { flex: 1 },
-  scrollContent: {
-    padding: 16,
-    gap: 16,
-  },
+  screen:       { flex: 1, backgroundColor: '#F5F7F7' },
+  centeredFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll:       { flex: 1 },
+  scrollContent: { padding: 16, gap: 16 },
 
-  // Avatar
-  avatarSection: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    gap: 6,
-  },
-  avatarCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#2D7CE9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#FAFBFB',
-    fontSize: 30,
-    fontWeight: '700',
-  },
-  changePhoto: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2D7CE9',
-  },
-  photoHint: {
-    fontSize: 12,
-    color: '#6C7886',
-  },
+  avatarSection: { alignItems: 'center', paddingVertical: 8, gap: 6 },
+  avatarCircle:  { width: 88, height: 88, borderRadius: 44, backgroundColor: '#2D7CE9', alignItems: 'center', justifyContent: 'center' },
+  avatarText:    { color: '#FAFBFB', fontSize: 30, fontWeight: '700' },
+  changePhoto:   { fontSize: 14, fontWeight: '600', color: '#2D7CE9' },
+  photoHint:     { fontSize: 12, color: '#6C7886' },
 
-  // Form card
   formCard: {
     backgroundColor: '#FAFBFB',
     borderRadius: 14,
@@ -252,60 +242,21 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  fieldDivider: {
-    height: 1,
-    backgroundColor: '#F0F2F4',
-  },
+  fieldDivider: { height: 1, backgroundColor: '#F0F2F4' },
   input: {
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1C283B',
-    backgroundColor: '#FAFBFB',
+    borderWidth: 1, borderColor: '#DDE2E6', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: '#1C283B', backgroundColor: '#FAFBFB',
   },
-  inputFlex: {
-    flex: 1,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  inputLocked: {
-    backgroundColor: '#F0F2F4',
-    justifyContent: 'center',
-  },
-  inputLockedText: {
-    fontSize: 14,
-    color: '#6C7886',
-  },
+  inputFlex:       { flex: 1 },
+  inputRow:        { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  inputLocked:     { backgroundColor: '#F0F2F4', justifyContent: 'center' },
+  inputLockedText: { fontSize: 14, color: '#6C7886' },
 
-  // Buttons
-  btnSave: {
-    backgroundColor: '#2D7CE9',
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
+  btnSave:        { backgroundColor: '#2D7CE9', borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   btnSavePressed: { opacity: 0.8 },
-  btnSaveText: {
-    color: '#FAFBFB',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  cancelLink: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  cancelText: {
-    fontSize: 14,
-    color: '#6C7886',
-    fontWeight: '500',
-    textDecorationLine: 'underline',
-  },
-
-  pressed: { opacity: 0.75 },
+  btnSaveText:    { color: '#FAFBFB', fontWeight: '700', fontSize: 15 },
+  cancelLink:     { alignItems: 'center', paddingVertical: 8 },
+  cancelText:     { fontSize: 14, color: '#6C7886', fontWeight: '500', textDecorationLine: 'underline' },
+  pressed:        { opacity: 0.75 },
 });
