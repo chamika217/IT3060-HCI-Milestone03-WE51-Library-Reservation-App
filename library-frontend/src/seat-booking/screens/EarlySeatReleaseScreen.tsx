@@ -238,6 +238,7 @@ export default function EarlySeatReleaseScreen() {
         onTabPress={(tab: TabName) => {
           if (tab === 'Home') router.push('/seats');
           else if (tab === 'Bookings') router.push('/seats/my-bookings');
+          else if (tab === 'Alerts') router.push('/seats/auto-release-warning');
         }}
       />
     </SafeAreaView>

@@ -111,6 +111,20 @@ export default function MyBookingsScreen() {
     );
   };
 
+  const handleTabPress = (tab: TabName) => {
+    setBottomTab(tab);
+    if (tab === 'Alerts') {
+      router.push({
+        pathname: '/seats/auto-release-warning',
+        params: {
+          seatNumber: activeReservation.seatNumber,
+          roomName: activeReservation.roomName,
+          timeRange: activeReservation.timeRange,
+        },
+      });
+    }
+  };
+
   const handleViewPass = (reservation: ReservationItem) => {
     setSelectedPassReservation(reservation);
     setQrModalVisible(true);
@@ -300,7 +314,7 @@ export default function MyBookingsScreen() {
       />
 
       {/* Bottom Nav */}
-      <SeatBottomNav activeTab={bottomTab} onTabPress={setBottomTab} />
+      <SeatBottomNav activeTab={bottomTab} onTabPress={handleTabPress} />
     </SafeAreaView>
   );
 }
