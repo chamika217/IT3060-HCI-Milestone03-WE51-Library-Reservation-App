@@ -250,3 +250,52 @@ exports.releaseReservation = async (req, res) => {
     res.status(500).json({ message: 'Failed to release seat' });
   }
 };
+
+exports.updateReservation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user, seat, startTime, endTime } = req.body || {};
+
+    if (!mongoose.isValidObjectId(id) || !mongoose.isValidObjectId(user)) {
+      return res.status(400).json({ message: 'Valid reservation and user ids are required' });
+    }
+
+    const reservation = await Reservation.findOne({ _id: id, user });
+    if (!reservation) {
+      return res.status(404).json({ message: 'Reservation not found' });
+    }
+
+    if (reservation.status !== 'reserved') {
+      return res.status(400).json({ message: 'Only an active reserved booking can be updated' });
+    }
+
+    if (seat && mongoose.isValidObjectId(seat)) {
+      const foundSeat = await Seat.findOne({ _id: seat, isActive: true });
+      if (!foundSeat) {
+        return res.status(404).json({ message: 'Target seat not found' });
+      }
+      reservation.seat = seat;
+    }
+
+    if (startTime && endTime) {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      if (isNaN(start) || isNaN(end) || end <= start) {
+        return res.status(400).json({ message: 'Invalid start or end time' });
+      }
+      reservation.startTime = start;
+      reservation.endTime = end;
+    }
+
+    await reservation.save();
+    const updated = await Reservation.findById(reservation._id).populate({
+      path: 'seat',
+      select: 'seatNumber pod features room',
+      populate: { path: 'room', select: 'code name level' },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update reservation' });
+  }
+};

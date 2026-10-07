@@ -84,7 +84,11 @@ export const RoomCard: React.FC<RoomCardProps> = ({
   };
 
   return (
-    <View style={styles.cardContainer}>
+    <TouchableOpacity
+      style={styles.cardContainer}
+      onPress={() => onViewSeatMap?.(room)}
+      activeOpacity={0.85}
+    >
       {/* Top Badge & Action Icon */}
       <View style={styles.topRow}>
         <View style={[styles.badgePill, { backgroundColor: badge.bg }]}>
@@ -165,7 +169,7 @@ export const RoomCard: React.FC<RoomCardProps> = ({
           <Ionicons name="arrow-forward" size={14} color={Colors.primary} />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

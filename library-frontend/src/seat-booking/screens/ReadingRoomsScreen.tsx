@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -116,19 +117,30 @@ export default function ReadingRoomsScreen() {
   }, [rooms, selectedCategory, searchQuery]);
 
   const handleViewSeatMap = (room: Room) => {
-    Alert.alert(
-      `Seat Map - ${room.code}`,
-      `Navigating to interactive floor plan for ${room.name} (${room.openSeats} seats available).`,
-      [{ text: 'OK' }]
-    );
+    router.push({
+      pathname: '/seats/matrix',
+      params: {
+        roomCode: room.code,
+        roomName: room.name,
+      },
+    });
   };
 
   const handleActionPress = (room: Room) => {
-    Alert.alert(
-      `Room Info`,
-      `${room.name} on Level ${room.level}. Total capacity: ${room.totalSeats} seats.`,
-      [{ text: 'Close' }]
-    );
+    router.push({
+      pathname: '/seats/matrix',
+      params: {
+        roomCode: room.code,
+        roomName: room.name,
+      },
+    });
+  };
+
+  const handleTabPress = (tab: TabName) => {
+    setActiveTab(tab);
+    if (tab === 'Bookings') {
+      router.push('/seats/my-bookings');
+    }
   };
 
   return (
@@ -195,7 +207,7 @@ export default function ReadingRoomsScreen() {
       </ScrollView>
 
       {/* Bottom Nav Bar */}
-      <SeatBottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+      <SeatBottomNav activeTab={activeTab} onTabPress={handleTabPress} />
     </SafeAreaView>
   );
 }
