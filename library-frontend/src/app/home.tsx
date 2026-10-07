@@ -20,9 +20,9 @@ export default function Home() {
 
   const services = [
     { title: 'Search Books', copy: 'Stacks & shelf map', icon: 'search' as const, color: c.primary, surface: c.primarySoft, onPress: () => router.push('/books') },
-    { title: 'Reserve Pod', copy: 'Quiet study booths', icon: 'calendar' as const, color: c.warning, surface: c.warningSoft, onPress: () => setServiceInfo('Pod reservations are not available in this portal yet. Please ask at the library service desk.') },
-    { title: `My Holds (${holds.length})`, copy: 'Pickup information and collection codes', icon: 'archive' as const, color: c.success, surface: c.successSoft, onPress: () => router.push('/books/reservations') },
-    { title: 'Reader Pass', copy: user?.studentId ? `Library ID · ${user.studentId}` : 'Membership and library ID', icon: 'credit-card' as const, color: c.text, surface: c.card, onPress: () => router.push('/profile') },
+    { title: 'Borrowing guide', copy: 'Reserve, collect and manage books', icon: 'book-open' as const, color: c.warning, surface: c.warningSoft, onPress: () => setServiceInfo('Choose an available title, select a pickup date and window, then show your collection code and student or staff ID at the library service desk.') },
+    { title: 'My reservations', copy: user ? `${holds.length} active pickup ${holds.length === 1 ? 'request' : 'requests'}` : 'Sign in to view pickup dates and codes', icon: 'archive' as const, color: c.success, surface: c.successSoft, onPress: () => router.push(user ? '/books/reservations' : '/login') },
+    { title: 'Reader profile', copy: user?.studentId ? `Library ID · ${user.studentId}` : 'Sign in to view your library profile', icon: 'credit-card' as const, color: c.text, surface: c.card, onPress: () => router.push(user ? '/profile' : '/login') },
   ];
 
   return (
@@ -69,9 +69,9 @@ export default function Home() {
               <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={item.icon} color={item.color} size={18} />
               </View>
-              {item.title.startsWith('My Holds') && <Badge tone="success">{holds.length} ACTIVE</Badge>}
-              {item.title === 'Reader Pass' && <Badge tone={user ? 'success' : 'info'}>{user ? 'MEMBER' : 'PROFILE'}</Badge>}
-              {item.title === 'Reserve Pod' && <Badge tone="warning">COMING SOON</Badge>}
+              {item.title === 'My reservations' && <Badge tone={user ? 'success' : 'info'}>{user ? `${holds.length} ACTIVE` : 'SIGN IN'}</Badge>}
+              {item.title === 'Reader profile' && <Badge tone={user ? 'success' : 'info'}>{user ? 'MEMBER' : 'SIGN IN'}</Badge>}
+              {item.title === 'Borrowing guide' && <Badge tone="info">HOW IT WORKS</Badge>}
             </View>
             <Text style={u.heading}>{item.title}</Text>
             <Text style={u.small}>{item.copy}</Text>

@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import { palette as c } from '@/constants/design-system';
 import type { Book } from '@/types/book';
 
@@ -60,6 +60,7 @@ export default function BookCover({ book, large = false }: { book: Book; large?:
 	const cover = covers[(book.cover ?? Number(book.id)) - 1];
 	const width = large ? 106 : 62;
 	const height = large ? 144 : 86;
+	const initials = book.title.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').toUpperCase() || 'BK';
 
 	return (
 		<View
@@ -79,7 +80,15 @@ export default function BookCover({ book, large = false }: { book: Book; large?:
 					style={{ width: '100%', height: '100%' }}
 					transition={150}
 				/>
-			) : null}
+			) : (
+				<View style={{ flex: 1, padding: large ? 10 : 6, justifyContent: 'space-between', borderLeftWidth: 3, borderLeftColor: c.primary }}>
+					<Text style={{ color: c.primary, fontSize: large ? 28 : 17, fontWeight: '800', letterSpacing: -1 }}>{initials}</Text>
+					<View style={{ gap: 3 }}>
+						<Text numberOfLines={3} style={{ color: c.text, fontSize: large ? 9 : 7, lineHeight: large ? 12 : 9, fontWeight: '700' }}>{book.title}</Text>
+						<Text numberOfLines={1} style={{ color: c.secondary, fontSize: large ? 7 : 6 }}>{book.author}</Text>
+					</View>
+				</View>
+			)}
 		</View>
 	);
 }

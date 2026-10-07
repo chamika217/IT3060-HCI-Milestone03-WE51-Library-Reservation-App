@@ -33,7 +33,16 @@ exports.create = async (req, res) => {
   let book = await Book.collection.findOneAndUpdate({ ...filter, _id: id }, update, { returnDocument: 'after' });
   // Keep compatibility with a string ID that happens to look like an ObjectId.
   if (!book && id !== bookId) book = await Book.collection.findOneAndUpdate({ ...filter, _id: bookId }, update, { returnDocument: 'after' });
-  if (!book) return res.status(409).json({ message: 'This book is unavailable or you already reserved it.' });
+  if (!book) {
+    let current = await Book.collection.findOne({ _id: id }, { projection: { copies: 1, reservations: 1 } });
+    if (!current && id !== bookId) current = await Book.collection.findOne({ _id: bookId }, { projection: { copies: 1, reservations: 1 } });
+    if (!current) return res.status(404).json({ message: 'This title is no longer in the catalogue.' });
+    if ((current.reservations || []).some(item => String(item.userId) === req.userId)) {
+      return res.status(409).json({ message: 'You already have an active reservation for this title.' });
+    }
+    if (!(Number(current.copies) > 0)) return res.status(409).json({ message: 'No copies are currently available. Please check back later.' });
+    return res.status(409).json({ message: 'Availability just changed. Refresh the catalogue and try again.' });
+  }
   res.status(201).json({ reservation: { ...publicBook(book), reservationId: reservation._id, pickupDate, pickupWindow, pickupCode: reservation.pickupCode } });
 };
 exports.cancel = async (req, res) => {

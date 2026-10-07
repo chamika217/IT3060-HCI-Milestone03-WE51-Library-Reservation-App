@@ -112,7 +112,7 @@ export default function Reserve() {
           <Text style={u.caption}>All pickup dates and times use Sri Lanka time.</Text>
         </View>
 
-        <Message>{demo ? 'This creates a demo reservation only. No physical book will be held.' : 'Your copy is secured only after the library confirms this request.'}</Message>
+        <Message>{demo ? 'This creates a demo reservation only. No physical book will be held.' : 'Your reservation is recorded when you confirm. Bring the collection code and your student or staff ID to the service desk.'}</Message>
         {!demo && !user && <Message error>Please sign in to reserve this book.</Message>}
         {!!error && <Message error>{error}</Message>}
         <Button busy={busy} disabled={!book.available} icon={user || demo ? 'check' : 'arrow-right'} onPress={submit}>{!user && !demo ? 'Sign in to reserve' : demo ? 'Confirm demo reservation' : 'Confirm reservation'}</Button>

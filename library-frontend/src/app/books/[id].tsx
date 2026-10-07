@@ -23,7 +23,7 @@ export default function Details() {
         <View style={[u.row, { alignItems: 'flex-start' }]}>
           <BookCover book={book} large />
           <View style={{ flex: 1, gap: 10 }}>
-            <Badge tone={book.available ? 'success' : 'warning'}>{book.available ? book.copies + ' COPIES AVAILABLE' : 'CURRENTLY UNAVAILABLE'}</Badge>
+            <Badge tone={book.available ? 'success' : 'warning'}>{book.available ? book.copies + ' AVAILABLE TO RESERVE' : 'CURRENTLY UNAVAILABLE'}</Badge>
             <Text style={u.title}>{book.title}</Text>
             <Text style={u.body}>{book.author}</Text>
             <Text style={u.caption}>{book.category}</Text>
@@ -43,7 +43,7 @@ export default function Details() {
           <View style={u.between}>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={u.heading}>{library.demo ? 'Floor 2 · Main stacks' : 'Browse by category aisle'}</Text>
-              <Text style={u.small}>Select an aisle to browse its books.</Text>
+              <Text style={u.small}>Category guide only. Ask library staff to confirm the exact shelf.</Text>
             </View>
             <Badge tone="info">{library.demo ? 'SAMPLE LAYOUT' : 'CATEGORY GUIDE'}</Badge>
           </View>
@@ -72,8 +72,8 @@ export default function Details() {
 
         <Card>
           <Section title="Before you reserve" />
-          <Text style={u.body}>Choose a pickup date within the next seven days. Your confirmation includes the pickup window and collection code.</Text>
-          <Text style={u.small}>For loan periods and late-return rules, check with your library desk.</Text>
+          <Text style={u.body}>Choose a pickup date and window. A collection code is created when your reservation is recorded.</Text>
+          <Text style={u.small}>Show the code and your student or staff ID at the service desk.</Text>
         </Card>
         <Button disabled={!book.available} icon="bookmark" onPress={() => router.push({ pathname: '/books/reserve', params: { id: book.id } })}>
           {book.available ? 'Reserve this book' : 'Currently unavailable'}

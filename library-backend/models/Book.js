@@ -9,4 +9,5 @@ const schema = new mongoose.Schema({
   reservations: { type: [reservation], default: [], select: false },
 });
 schema.index({ 'reservations.userId': 1 });
+schema.index({ isbn: 1 }, { unique: true, partialFilterExpression: { isbn: { $type: 'string', $gt: '' } } });
 module.exports = mongoose.model('Book', schema);
