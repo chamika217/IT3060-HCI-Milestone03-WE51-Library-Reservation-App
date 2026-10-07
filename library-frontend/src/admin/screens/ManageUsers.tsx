@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Alert } from 'react-native';
-import { colors, spacing } from '../theme';
-import { Header, Card, Button, Input, StatusBadge, Chip, Loading, ErrorBox, Empty } from '../components';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, spacing, font, radius } from '../theme';
+import { Header, Card, Button, StatusBadge, Chip, Loading, ErrorBox, Empty, SearchBar, Avatar } from '../components';
+import { notify, confirmAction } from '../dialog';
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
 
@@ -12,44 +14,128 @@ export default function ManageUsers({ nav }: any) {
   const { data, loading, error, reload } = useLoad('/users', { search: q });
 
   const update = async (u: any, patch: any) => {
-    try { await api.put(`/users/${u._id}`, patch); reload(); } catch (e) { Alert.alert('Error', errMsg(e)); }
+    try {
+      await api.put(`/users/${u._id}`, patch);
+      reload();
+    } catch (e) {
+      notify('Error', errMsg(e));
+    }
   };
-  const remove = (u: any) => Alert.alert('Delete user', `Delete ${u.name}?`, [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Delete', style: 'destructive', onPress: async () => {
-      try { await api.delete(`/users/${u._id}`); reload(); } catch (e) { Alert.alert('Error', errMsg(e)); }
-    } },
-  ]);
+
+  const remove = async (u: any) => {
+    const ok = await confirmAction('Delete user', `Delete ${u.name}?`, 'Delete', true);
+    if (!ok) return;
+    try {
+      await api.delete(`/users/${u._id}`);
+      reload();
+    } catch (e) {
+      notify('Error', errMsg(e));
+    }
+  };
 
   return (
-    <View style={{ flex: 1 }}>
-      <Header title="Manage Users" onBack={nav.goBack} />
-      <View style={{ padding: spacing.md, paddingBottom: 0 }}>
-        <Input placeholder="Search name or email" value={q} onChangeText={setQ} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Header title="Manage Users" subtitle="User directory, roles & status" onBack={nav.goBack} />
+
+      <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
+        <SearchBar placeholder="Search user name or email..." value={q} onChangeText={setQ} />
       </View>
-      {loading ? <Loading /> : error ? <ErrorBox message={error} onRetry={reload} /> : (
-        <FlatList data={data} keyExtractor={(u: any) => u._id} contentContainerStyle={{ padding: spacing.md }}
-          ListEmptyComponent={<Empty text="No users" />}
+
+      {loading ? (
+        <Loading message="Loading users..." />
+      ) : error ? (
+        <ErrorBox message={error} onRetry={reload} />
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(u: any) => u._id}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 }}
+          ListEmptyComponent={<Empty text="No users found" icon="people-outline" />}
           renderItem={({ item: u }: any) => (
-            <Card>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: colors.text }}>{u.name}</Text>
-                  <Text style={{ color: colors.textSecondary }}>{u.email}</Text>
+            <Card style={s.userCard}>
+              <View style={s.cardTop}>
+                <Avatar name={u.name} size={44} />
+                <View style={{ flex: 1, marginLeft: spacing.sm + 4 }}>
+                  <Text style={s.userName}>{u.name}</Text>
+                  <Text style={s.userEmail}>{u.email}</Text>
                 </View>
                 <StatusBadge status={u.status} />
               </View>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.sm }}>
-                {ROLES.map((r: any) => <Chip key={r} label={r} active={u.role === r} onPress={() => update(u, { role: r })} />)}
+
+              <Text style={s.roleLabel}>Assigned Role</Text>
+              <View style={s.roleChipsRow}>
+                {ROLES.map((r) => (
+                  <Chip
+                    key={r}
+                    label={r}
+                    active={u.role === r}
+                    onPress={() => update(u, { role: r })}
+                  />
+                ))}
               </View>
-              <View style={{ flexDirection: 'row' }}>
-                <Button title={u.status === 'Active' ? 'Deactivate' : 'Activate'} variant={u.status === 'Active' ? 'outline' : 'success'} style={{ flex: 1, marginRight: spacing.sm }}
-                  onPress={() => update(u, { status: u.status === 'Active' ? 'Inactive' : 'Active' })} />
-                <Button title="Delete" variant="danger" style={{ flex: 1 }} onPress={() => remove(u)} />
+
+              <View style={s.cardActions}>
+                <Button
+                  title={u.status === 'Active' ? 'Deactivate' : 'Activate'}
+                  variant={u.status === 'Active' ? 'outline' : 'success'}
+                  size="sm"
+                  icon={u.status === 'Active' ? 'pause-circle-outline' : 'checkmark-circle-outline'}
+                  style={{ flex: 1, marginRight: spacing.sm }}
+                  onPress={() => update(u, { status: u.status === 'Active' ? 'Inactive' : 'Active' })}
+                />
+                <Button
+                  title="Delete User"
+                  variant="danger"
+                  size="sm"
+                  icon="trash-outline"
+                  style={{ flex: 1 }}
+                  onPress={() => remove(u)}
+                />
               </View>
             </Card>
-          )} />
+          )}
+        />
       )}
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  userCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: font.h3,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.2,
+  },
+  userEmail: {
+    fontSize: font.small,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  roleLabel: {
+    fontSize: font.xs,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  roleChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: spacing.sm,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    marginTop: spacing.xs,
+  },
+});
