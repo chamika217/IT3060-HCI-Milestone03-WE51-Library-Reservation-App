@@ -20,9 +20,9 @@ export default function Home() {
 
   const services = [
     { title: 'Search Books', copy: 'Stacks & shelf map', icon: 'search' as const, color: c.primary, surface: c.primarySoft, onPress: () => router.push('/books') },
-    { title: 'Borrowing guide', copy: 'Reserve, collect and manage books', icon: 'book-open' as const, color: c.warning, surface: c.warningSoft, onPress: () => setServiceInfo('Choose an available title, select a pickup date and window, then show your collection code and student or staff ID at the library service desk.') },
-    { title: 'My reservations', copy: user ? `${holds.length} active pickup ${holds.length === 1 ? 'request' : 'requests'}` : 'Sign in to view pickup dates and codes', icon: 'archive' as const, color: c.success, surface: c.successSoft, onPress: () => router.push(user ? '/books/reservations' : '/login') },
-    { title: 'Reader profile', copy: user?.studentId ? `Library ID · ${user.studentId}` : 'Sign in to view your library profile', icon: 'credit-card' as const, color: c.text, surface: c.card, onPress: () => router.push(user ? '/profile' : '/login') },
+    { title: 'Reserve Pod', copy: 'Study pod booking is not available yet', icon: 'calendar' as const, color: '#8B28D8', surface: '#F6EFFF', onPress: () => setServiceInfo('Study pod booking is not available in this app yet. You can still reserve books from Search Books.') },
+    { title: user ? `My Holds (${holds.length})` : 'My Holds', copy: user ? 'View pickup dates and collection codes' : 'Sign in to view your reservations', icon: 'archive' as const, color: '#C65A00', surface: c.warningSoft, onPress: () => router.push(user ? '/books/reservations' : '/login') },
+    { title: 'Reader Pass', copy: user?.studentId ? `Library ID · ${user.studentId}` : 'Sign in to view your library ID', icon: 'credit-card' as const, color: '#008568', surface: c.successSoft, onPress: () => router.push(user ? '/profile' : '/login') },
   ];
 
   return (
@@ -63,15 +63,15 @@ export default function Home() {
             key={item.title}
             accessibilityRole="button"
             onPress={item.onPress}
-            style={({ pressed }) => [u.card, { flexGrow: 1, flexBasis: wide ? '46%' : '100%', minWidth: wide ? 240 : 0, backgroundColor: item.surface, borderColor: c.border, minHeight: 132 }, pressed && { opacity: 0.82 }]}
+            style={({ pressed }) => [u.card, { flexGrow: 1, flexBasis: '46%', minWidth: wide ? 240 : 140, backgroundColor: item.surface, borderColor: c.border, minHeight: 132, padding: 16, gap: 8 }, pressed && { opacity: 0.82 }]}
           >
             <View style={u.between}>
               <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={item.icon} color={item.color} size={18} />
               </View>
-              {item.title === 'My reservations' && <Badge tone={user ? 'success' : 'info'}>{user ? `${holds.length} ACTIVE` : 'SIGN IN'}</Badge>}
-              {item.title === 'Reader profile' && <Badge tone={user ? 'success' : 'info'}>{user ? 'MEMBER' : 'SIGN IN'}</Badge>}
-              {item.title === 'Borrowing guide' && <Badge tone="info">HOW IT WORKS</Badge>}
+              {item.title.startsWith('My Holds') && <Icon name="arrow-right" color={item.color} size={17} />}
+              {item.title === 'Reader Pass' && <Icon name="arrow-right" color={item.color} size={17} />}
+              {item.title === 'Reserve Pod' && <Badge tone="warning">COMING SOON</Badge>}
             </View>
             <Text style={u.heading}>{item.title}</Text>
             <Text style={u.small}>{item.copy}</Text>
