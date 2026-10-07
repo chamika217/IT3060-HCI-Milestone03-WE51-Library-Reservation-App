@@ -2,10 +2,10 @@
  * Screen 10 — Contact Library Staff
  * Route: /(tabs)/profile/contact
  *
- * handleSend is structured to later POST to /api/contact.
+ * Prefills name & studentId from the real API; sends via POST /api/contact.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,8 +26,9 @@ import {
   BottomNavBar,
   IonIcon,
 } from '@/components/shared';
-import { MOCK_PROFILE } from '@/features/profile/mockData';
+import { getUserProfile, sendContactMessage } from '@/services/api';
 import { CONTACT_SUBJECTS, ContactSubject } from '@/features/profile/types';
+import { TEST_USER_ID } from '@/constants/testAuth';
 
 const MAX_MESSAGE_LENGTH = 500;
 
@@ -46,13 +47,11 @@ function Field({ label, children }: FieldProps) {
   );
 }
 const fieldStyles = StyleSheet.create({
-  wrap: { gap: 6 },
+  wrap:  { gap: 6 },
   label: { fontSize: 12, fontWeight: '600', color: '#6C7886', letterSpacing: 0.2 },
 });
 
 // ─── Simple dropdown ──────────────────────────────────────────────────────────
-// A lightweight Pressable-based picker; replace with a real Picker once
-// @react-native-picker/picker is available.
 
 interface DropdownProps {
   value: ContactSubject;
@@ -94,9 +93,7 @@ function Dropdown({ value, options, onChange }: DropdownProps) {
               <Text style={[dropStyles.optionText, opt === value && dropStyles.optionTextActive]}>
                 {opt}
               </Text>
-              {opt === value && (
-                <IonIcon name="checkmark-circle" size={15} color="#2D7CE9" />
-              )}
+              {opt === value && <IonIcon name="checkmark-circle" size={15} color="#2D7CE9" />}
             </Pressable>
           ))}
         </View>
@@ -107,53 +104,53 @@ function Dropdown({ value, options, onChange }: DropdownProps) {
 
 const dropStyles = StyleSheet.create({
   trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#FAFBFB',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1, borderColor: '#DDE2E6', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#FAFBFB',
   },
-  triggerOpen: { borderColor: '#2D7CE9', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+  triggerOpen:    { borderColor: '#2D7CE9', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   triggerPressed: { backgroundColor: '#F0F2F4' },
-  triggerText: { fontSize: 14, color: '#1C283B' },
+  triggerText:    { fontSize: 14, color: '#1C283B' },
   menu: {
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: '#2D7CE9',
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    backgroundColor: '#FAFBFB',
-    overflow: 'hidden',
+    borderWidth: 1, borderTopWidth: 0, borderColor: '#2D7CE9',
+    borderBottomLeftRadius: 8, borderBottomRightRadius: 8,
+    backgroundColor: '#FAFBFB', overflow: 'hidden',
   },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-  optionActive: { backgroundColor: '#EAF2FD' },
-  optionPressed: { backgroundColor: '#F0F2F4' },
-  optionText: { fontSize: 14, color: '#1C283B' },
-  optionTextActive: { color: '#2D7CE9', fontWeight: '600' },
+  option:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 11 },
+  optionActive:    { backgroundColor: '#EAF2FD' },
+  optionPressed:   { backgroundColor: '#F0F2F4' },
+  optionText:      { fontSize: 14, color: '#1C283B' },
+  optionTextActive:{ color: '#2D7CE9', fontWeight: '600' },
 });
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ContactScreen() {
   const insets = useSafeAreaInsets();
-  const profile = MOCK_PROFILE;
 
+  // Prefilled from API
+  const [fullName,   setFullNameDisplay] = useState('');
+  const [studentId,  setStudentIdDisplay] = useState('');
+  const [alertCount, setAlertCount]       = useState(0);
+
+  // Form state
   const [subject,    setSubject]    = useState<ContactSubject>('General Inquiry');
   const [message,    setMessage]    = useState('');
   const [attachment, setAttachment] = useState<string | null>(null);
   const [sending,    setSending]    = useState(false);
 
   const remaining = MAX_MESSAGE_LENGTH - message.length;
+
+  // Load profile to prefill locked fields
+  useEffect(() => {
+    getUserProfile(TEST_USER_ID)
+      .then((p) => {
+        setFullNameDisplay(p.fullName);
+        setStudentIdDisplay(p.studentId);
+        setAlertCount(p.stats.alerts);
+      })
+      .catch(() => {}); // non-critical — fields just stay empty
+  }, []);
 
   async function handleSend() {
     if (message.trim().length < 10) {
@@ -162,26 +159,28 @@ export default function ContactScreen() {
     }
     setSending(true);
     try {
-      // TODO: POST /api/contact
-      // await fetch('http://localhost:5000/api/contact', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     fullName: profile.fullName,
-      //     studentId: profile.studentId,
-      //     subject,
-      //     message,
-      //     attachment,
-      //   }),
-      // });
-      await new Promise((r) => setTimeout(r, 700));
+      await sendContactMessage({
+        userId:        TEST_USER_ID,
+        subject,
+        message:       message.trim(),
+        attachmentUrl: attachment ?? undefined,
+      });
       Alert.alert(
         'Message Sent',
         'A reference librarian will respond within 24 business hours.',
-        [{ text: 'OK', onPress: () => router.back() }],
+        [{
+          text: 'OK',
+          onPress: () => {
+            // Clear form then go back
+            setMessage('');
+            setAttachment(null);
+            setSubject('General Inquiry');
+            router.back();
+          },
+        }],
       );
-    } catch {
-      Alert.alert('Error', 'Could not send your message. Please try again.');
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Could not send your message. Please try again.');
     } finally {
       setSending(false);
     }
@@ -192,10 +191,7 @@ export default function ContactScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScreenHeader
-        title="Contact Library Staff"
-        onBack={() => router.back()}
-      />
+      <ScreenHeader title="Contact Library Staff" onBack={() => router.back()} />
 
       {/* Sub-header */}
       <View style={styles.subHeader}>
@@ -207,21 +203,17 @@ export default function ContactScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 100 },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* ── Form card ────────────────────────────────────────── */}
         <View style={styles.formCard}>
-
-          {/* Full name — prefilled read-only */}
+          {/* Full name — prefilled, read-only */}
           <Field label="Full Name">
             <View style={styles.lockedRow}>
               <View style={[styles.input, styles.inputLocked, styles.inputFlex]}>
-                <Text style={styles.lockedText}>{profile.fullName}</Text>
+                <Text style={styles.lockedText}>{fullName || '…'}</Text>
               </View>
               <IonIcon name="lock-closed" size={15} color="#6C7886" />
             </View>
@@ -233,7 +225,7 @@ export default function ContactScreen() {
           <Field label="Student ID">
             <View style={styles.lockedRow}>
               <View style={[styles.input, styles.inputLocked, styles.inputFlex]}>
-                <Text style={styles.lockedText}>{profile.studentId}</Text>
+                <Text style={styles.lockedText}>{studentId || '…'}</Text>
               </View>
               <StatusBadge label="Verified" variant="success" size="sm" />
             </View>
@@ -243,11 +235,7 @@ export default function ContactScreen() {
 
           {/* Subject */}
           <Field label="Subject">
-            <Dropdown
-              value={subject}
-              options={CONTACT_SUBJECTS}
-              onChange={setSubject}
-            />
+            <Dropdown value={subject} options={CONTACT_SUBJECTS} onChange={setSubject} />
           </Field>
 
           <View style={styles.divider} />
@@ -257,9 +245,7 @@ export default function ContactScreen() {
             <TextInput
               style={styles.textArea}
               value={message}
-              onChangeText={(t) => {
-                if (t.length <= MAX_MESSAGE_LENGTH) setMessage(t);
-              }}
+              onChangeText={(t) => { if (t.length <= MAX_MESSAGE_LENGTH) setMessage(t); }}
               placeholder="Describe your enquiry in detail…"
               placeholderTextColor="#6C7886"
               multiline
@@ -267,45 +253,27 @@ export default function ContactScreen() {
               textAlignVertical="top"
               accessibilityLabel="Message"
             />
-            <Text
-              style={[
-                styles.charCount,
-                remaining < 50 && styles.charCountWarn,
-              ]}
-            >
+            <Text style={[styles.charCount, remaining < 50 && styles.charCountWarn]}>
               {message.length} / {MAX_MESSAGE_LENGTH} characters
             </Text>
           </Field>
         </View>
 
-        {/* ── Attachment row ───────────────────────────────────── */}
+        {/* ── Attachment ───────────────────────────────────────── */}
         <Pressable
-          onPress={() => {
-            // TODO: open image picker / document picker
-            setAttachment('placeholder');
-          }}
+          onPress={() => setAttachment(attachment ? null : 'placeholder')}
           style={({ pressed }) => [styles.attachBox, pressed && styles.pressed]}
           accessibilityRole="button"
-          accessibilityLabel="Attach a file"
+          accessibilityLabel={attachment ? 'Remove attachment' : 'Attach a file'}
         >
           <IonIcon name="attach" size={20} color="#2D7CE9" />
           <View style={styles.attachText}>
             <Text style={styles.attachHeading}>
               {attachment ? '1 file attached' : 'Attach a file'}
             </Text>
-            <Text style={styles.attachSub}>
-              Screenshot or library pass (PNG, JPG or PDF)
-            </Text>
+            <Text style={styles.attachSub}>Screenshot or library pass (PNG, JPG or PDF)</Text>
           </View>
-          {attachment && (
-            <Pressable
-              onPress={() => setAttachment(null)}
-              hitSlop={8}
-              accessibilityLabel="Remove attachment"
-            >
-              <IonIcon name="close" size={16} color="#F04F55" />
-            </Pressable>
-          )}
+          {attachment && <IonIcon name="close" size={16} color="#F04F55" />}
         </Pressable>
 
         {/* ── Urgent note ──────────────────────────────────────── */}
@@ -320,21 +288,16 @@ export default function ContactScreen() {
         <Pressable
           onPress={handleSend}
           disabled={sending}
-          style={({ pressed }) => [
-            styles.btnSend,
-            (pressed || sending) && styles.btnSendPressed,
-          ]}
+          style={({ pressed }) => [styles.btnSend, (pressed || sending) && styles.btnSendPressed]}
           accessibilityRole="button"
           accessibilityLabel="Send message"
         >
           <IonIcon name="send" size={16} color="#FAFBFB" />
-          <Text style={styles.btnSendText}>
-            {sending ? 'Sending…' : 'Send Message'}
-          </Text>
+          <Text style={styles.btnSendText}>{sending ? 'Sending…' : 'Send Message'}</Text>
         </Pressable>
       </ScrollView>
 
-      <BottomNavBar activeTab="profile" unreadCount={profile.stats.alerts} />
+      <BottomNavBar activeTab="profile" unreadCount={alertCount} />
     </KeyboardAvoidingView>
   );
 }
@@ -346,134 +309,63 @@ const styles = StyleSheet.create({
 
   subHeader: {
     backgroundColor: '#FAFBFB',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#DDE2E6',
-    gap: 2,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#DDE2E6', gap: 2,
   },
-  subHeadDesk: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1C283B',
-  },
-  subHeadTime: {
-    fontSize: 12,
-    color: '#6C7886',
-  },
+  subHeadDesk: { fontSize: 13, fontWeight: '700', color: '#1C283B' },
+  subHeadTime: { fontSize: 12, color: '#6C7886' },
 
-  scroll: { flex: 1 },
+  scroll:        { flex: 1 },
   scrollContent: { padding: 16, gap: 14 },
 
-  // Form card
   formCard: {
-    backgroundColor: '#FAFBFB',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-    padding: 16,
-    gap: 14,
+    backgroundColor: '#FAFBFB', borderRadius: 14,
+    borderWidth: 1, borderColor: '#DDE2E6',
+    padding: 16, gap: 14,
     shadowColor: '#1C283B',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#F0F2F4',
-  },
+  divider:     { height: 1, backgroundColor: '#F0F2F4' },
   input: {
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1C283B',
-    backgroundColor: '#FAFBFB',
+    borderWidth: 1, borderColor: '#DDE2E6', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: '#1C283B', backgroundColor: '#FAFBFB',
   },
-  inputFlex: { flex: 1 },
-  inputLocked: {
-    backgroundColor: '#F0F2F4',
-    justifyContent: 'center',
-  },
-  lockedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  lockedText: { fontSize: 14, color: '#6C7886' },
+  inputFlex:    { flex: 1 },
+  inputLocked:  { backgroundColor: '#F0F2F4', justifyContent: 'center' },
+  lockedRow:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  lockedText:   { fontSize: 14, color: '#6C7886' },
   textArea: {
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1C283B',
-    backgroundColor: '#FAFBFB',
-    minHeight: 110,
+    borderWidth: 1, borderColor: '#DDE2E6', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: '#1C283B', backgroundColor: '#FAFBFB', minHeight: 110,
   },
-  charCount: {
-    fontSize: 11,
-    color: '#6C7886',
-    textAlign: 'right',
-  },
-  charCountWarn: {
-    color: '#F04F55',
-  },
+  charCount:     { fontSize: 11, color: '#6C7886', textAlign: 'right' },
+  charCountWarn: { color: '#F04F55' },
 
-  // Attachment
   attachBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: '#B3D0F7',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 14,
-    backgroundColor: '#EAF2FD',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1.5, borderColor: '#B3D0F7',
+    borderStyle: 'dashed', borderRadius: 12,
+    padding: 14, backgroundColor: '#EAF2FD',
   },
-  attachText: { flex: 1, gap: 2 },
+  attachText:    { flex: 1, gap: 2 },
   attachHeading: { fontSize: 14, fontWeight: '600', color: '#2D7CE9' },
   attachSub:     { fontSize: 12, color: '#6C7886' },
 
-  // Urgent note
   urgentNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#FFF5EB',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FDD8B0',
-    padding: 12,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: '#FFF5EB', borderRadius: 10,
+    borderWidth: 1, borderColor: '#FDD8B0', padding: 12,
   },
-  urgentText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#1C283B',
-    lineHeight: 18,
-  },
+  urgentText: { flex: 1, fontSize: 13, color: '#1C283B', lineHeight: 18 },
 
-  // Send button
   btnSend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#2D7CE9',
-    borderRadius: 12,
-    paddingVertical: 15,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: '#2D7CE9', borderRadius: 12, paddingVertical: 15,
   },
   btnSendPressed: { opacity: 0.8 },
-  btnSendText: {
-    color: '#FAFBFB',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-
-  pressed: { opacity: 0.75 },
+  btnSendText:    { color: '#FAFBFB', fontWeight: '700', fontSize: 15 },
+  pressed:        { opacity: 0.75 },
 });
