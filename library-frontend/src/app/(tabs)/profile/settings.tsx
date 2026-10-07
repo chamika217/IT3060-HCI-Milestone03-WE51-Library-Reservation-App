@@ -1,9 +1,12 @@
 /**
  * Screen 8 — Settings
  * Route: /(tabs)/profile/settings
+ *
+ * Notification preference toggles sync to PUT /api/users/:id/preferences.
+ * Device-level toggles (dark mode, reading display, in-app banners) remain local.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,14 +27,58 @@ import {
   Divider,
   IonIcon,
 } from '@/components/shared';
-import { MOCK_PROFILE } from '@/features/profile/mockData';
+import { getUserProfile, updateNotificationPreferences } from '@/services/api';
+import { ApiNotificationPreferences } from '@/features/notifications/types';
+import { TEST_USER_ID } from '@/constants/testAuth';
+
+// Default prefs shown before the API responds
+const DEFAULT_PREFS: ApiNotificationPreferences = {
+  pushEnabled:         true,
+  bookHolds:           true,
+  seatAlerts:          true,
+  dueDateReminders:    true,
+  cancellationNotices: true,
+  emailSummaries:      false,
+  quietHoursEnabled:   true,
+};
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
 
-  const [darkMode,      setDarkMode]      = useState(false);
-  const [readingMode,   setReadingMode]   = useState(true);
-  const [inAppBanners,  setInAppBanners]  = useState(true);
+  // ── Device-local toggles (no API) ────────────────────────────────────────
+  const [darkMode,     setDarkMode]     = useState(false);
+  const [readingMode,  setReadingMode]  = useState(true);
+  const [inAppBanners, setInAppBanners] = useState(true);
+
+  // ── Server-backed notification prefs ─────────────────────────────────────
+  const [prefs,         setPrefs]         = useState<ApiNotificationPreferences>(DEFAULT_PREFS);
+  const [unreadCount,   setUnreadCount]   = useState(0);
+
+  useEffect(() => {
+    getUserProfile(TEST_USER_ID)
+      .then((p) => {
+        setPrefs(p.notificationPreferences);
+        setUnreadCount(p.stats.alerts);
+      })
+      .catch(() => {}); // non-critical — fall back to defaults silently
+  }, []);
+
+  /**
+   * Optimistically update a single pref key, then sync to the server.
+   * On failure: revert the optimistic change.
+   */
+  function handlePrefChange<K extends keyof ApiNotificationPreferences>(
+    key: K,
+    value: ApiNotificationPreferences[K],
+  ) {
+    const previous = prefs;
+    const updated  = { ...prefs, [key]: value };
+    setPrefs(updated); // optimistic
+    updateNotificationPreferences(TEST_USER_ID, { [key]: value }).catch(() => {
+      setPrefs(previous); // revert on failure
+      Alert.alert('Sync Failed', 'Could not save preference. Please try again.');
+    });
+  }
 
   function handleSignOut() {
     Alert.alert(
@@ -50,13 +97,10 @@ export default function SettingsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: insets.bottom + 100 },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Preferences & campus account ────────────────────── */}
+        {/* ── Preferences & campus account ─────────────────────── */}
         <SectionCard label="PREFERENCES & CAMPUS ACCOUNT">
           <ToggleRow
             label="Dark Mode"
@@ -83,6 +127,29 @@ export default function SettingsScreen() {
             onPress={() => router.push('/(tabs)/notifications/preferences' as never)}
           />
           <Divider />
+          <ToggleRow
+            label="Push Notifications"
+            description="Master toggle for device delivery"
+            value={prefs.pushEnabled}
+            onValueChange={(v) => handlePrefChange('pushEnabled', v)}
+          />
+          <View style={styles.rowDivider} />
+          <ToggleRow
+            label="Book Holds & Pickups"
+            description="Alerts when reserved books are ready"
+            value={prefs.bookHolds}
+            onValueChange={(v) => handlePrefChange('bookHolds', v)}
+            disabled={!prefs.pushEnabled}
+          />
+          <View style={styles.rowDivider} />
+          <ToggleRow
+            label="Seat Booking Alerts"
+            description="15m expiration warnings"
+            value={prefs.seatAlerts}
+            onValueChange={(v) => handlePrefChange('seatAlerts', v)}
+            disabled={!prefs.pushEnabled}
+          />
+          <View style={styles.rowDivider} />
           <ToggleRow
             label="Quick In-App Banners"
             description="Real-time room ready updates"
@@ -141,12 +208,10 @@ export default function SettingsScreen() {
           />
         </SectionCard>
 
-        {/* ── Footer note ──────────────────────────────────────── */}
+        {/* ── Footer ───────────────────────────────────────────── */}
         <View style={styles.footer}>
           <IonIcon name="shield-checkmark" size={13} color="#6C7886" />
-          <Text style={styles.footerText}>
-            University ID v15.0 • Secure Session
-          </Text>
+          <Text style={styles.footerText}>University ID v15.0 • Secure Session</Text>
         </View>
 
         {/* ── Log out ──────────────────────────────────────────── */}
@@ -161,58 +226,24 @@ export default function SettingsScreen() {
         </Pressable>
       </ScrollView>
 
-      <BottomNavBar activeTab="profile" unreadCount={MOCK_PROFILE.stats.alerts} />
+      <BottomNavBar activeTab="profile" unreadCount={unreadCount} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F5F7F7',
-  },
-  scroll: { flex: 1 },
-  scrollContent: {
-    padding: 16,
-    gap: 16,
-  },
-  rowDivider: {
-    height: 1,
-    backgroundColor: '#F0F2F4',
-    marginHorizontal: 16,
-  },
-  valueText: {
-    fontSize: 13,
-    color: '#6C7886',
-    fontWeight: '500',
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 4,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#6C7886',
-    textAlign: 'center',
-  },
+  screen:        { flex: 1, backgroundColor: '#F5F7F7' },
+  scroll:        { flex: 1 },
+  scrollContent: { padding: 16, gap: 16 },
+  rowDivider:    { height: 1, backgroundColor: '#F0F2F4', marginHorizontal: 16 },
+  valueText:     { fontSize: 13, color: '#6C7886', fontWeight: '500' },
+  footer:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 4 },
+  footerText:    { fontSize: 12, color: '#6C7886', textAlign: 'center' },
   signOutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FDEAEA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F8BBBE',
-    paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: '#FDEAEA', borderRadius: 12,
+    borderWidth: 1, borderColor: '#F8BBBE', paddingVertical: 14,
   },
-  signOutText: {
-    color: '#F04F55',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  pressed: { opacity: 0.75 },
+  signOutText: { color: '#F04F55', fontWeight: '700', fontSize: 15 },
+  pressed:     { opacity: 0.75 },
 });
