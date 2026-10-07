@@ -4,7 +4,7 @@ async function start() {
   await connectDatabase();
   await Promise.all([require('./models/User').init(), require('./models/Session').init(), require('./models/Book').init()]);
   const server = require('./app').listen(Number(process.env.PORT) || 5000, () => console.log('Library API connected; listening on port ' + (process.env.PORT || 5000)));
-  server.on('error', async () => { console.error('Cannot listen. Check PORT.'); await require('mongoose').disconnect(); process.exitCode = 1; });
+  server.on('error', async error => { console.error(`Cannot listen (${error?.code || error?.name || 'UnknownError'}): ${error?.message || 'Check PORT.'}`); await require('mongoose').disconnect(); process.exitCode = 1; });
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => server.close(async () => { await require('mongoose').disconnect(); }));
 }
 start().catch(async error => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Button, Card, Field, Message, u } from '@/components/library/ui';
 import AuthTemplate from '@/components/library/AuthTemplate';
 import GoogleSignIn from '@/components/library/GoogleSignIn';
@@ -9,6 +9,7 @@ import { useLibrary } from '@/state/library';
 
 export default function Login() {
   const { login, loginWithGoogle } = useLibrary();
+  const { returnTo, id } = useLocalSearchParams<{ returnTo?: string; id?: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
@@ -22,6 +23,14 @@ export default function Login() {
         ? 'Password should include an uppercase and a lowercase letter.'
         : '';
 
+  function continueAfterSignIn() {
+    if (returnTo === 'reserve' && typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+      router.replace({ pathname: '/books/reserve', params: { id } });
+      return;
+    }
+    router.replace('/home');
+  }
+
   async function submit() {
     if (busy) return;
     if (!email.includes('@') || password.length < 8) {
@@ -33,7 +42,7 @@ export default function Login() {
     try {
       await login(email, password);
       setPassword('');
-      router.replace('/home');
+      continueAfterSignIn();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed.');
     } finally {
@@ -47,7 +56,8 @@ export default function Login() {
     setError('');
     try {
       const existingAccount = await loginWithGoogle(credential);
-      router.replace(existingAccount ? '/home' : '/signup');
+      if (existingAccount) continueAfterSignIn();
+      else router.replace('/signup');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Google sign-in failed.');
     } finally {

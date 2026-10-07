@@ -5,7 +5,7 @@ const reservation = new mongoose.Schema({
 }, { _id: false });
 const schema = new mongoose.Schema({
   _id: String, title: String, author: String, isbn: String, category: String,
-  description: String, color: String, copies: { type: Number, min: 0 },
+  description: String, color: String, cover: Number, copies: { type: Number, min: 0 },
   reservations: { type: [reservation], default: [], select: false },
 });
 schema.index({ 'reservations.userId': 1 });

@@ -11,7 +11,7 @@ function dates() { const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'A
 function weekday(date: string) { return new Intl.DateTimeFormat('en', { timeZone: 'Asia/Colombo', weekday: 'short' }).format(new Date(date + 'T12:00:00+05:30')); }
 export default function Reserve() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { books, demo, reserve } = useLibrary();
+  const { books, demo, user, reserve } = useLibrary();
   const [loadedBook, setLoadedBook] = useState<Book | null>(null);
   const book = demo ? books.find(item => item.id === id) : loadedBook;
   const days = dates();
@@ -31,6 +31,10 @@ export default function Reserve() {
 
   async function submit() {
     if (pending.current || !book) return;
+    if (!demo && !user) {
+      router.push({ pathname: '/login', params: { returnTo: 'reserve', id: book.id } });
+      return;
+    }
     pending.current = true;
     setBusy(true);
     setError('');
@@ -109,8 +113,9 @@ export default function Reserve() {
         </View>
 
         <Message>{demo ? 'This creates a demo reservation only. No physical book will be held.' : 'Your copy is secured only after the library confirms this request.'}</Message>
+        {!demo && !user && <Message error>Please sign in to reserve this book.</Message>}
         {!!error && <Message error>{error}</Message>}
-        <Button busy={busy} disabled={!book.available} icon="check" onPress={submit}>{demo ? 'Confirm demo reservation' : 'Confirm reservation'}</Button>
+        <Button busy={busy} disabled={!book.available} icon={user || demo ? 'check' : 'arrow-right'} onPress={submit}>{!user && !demo ? 'Sign in to reserve' : demo ? 'Confirm demo reservation' : 'Confirm reservation'}</Button>
       </>}
     </Screen>
   );
