@@ -27,9 +27,9 @@ import {
   Divider,
   IonIcon,
 } from '@/components/shared';
-import { getUserProfile, updateNotificationPreferences } from '@/services/api';
+import { getUserProfile, updateNotificationPreferences, getAuthUserId } from '@/services/api';
 import { ApiNotificationPreferences } from '@/features/notifications/types';
-import { TEST_USER_ID } from '@/constants/testAuth';
+
 
 // Default prefs shown before the API responds
 const DEFAULT_PREFS: ApiNotificationPreferences = {
@@ -55,7 +55,8 @@ export default function SettingsScreen() {
   const [unreadCount,   setUnreadCount]   = useState(0);
 
   useEffect(() => {
-    getUserProfile(TEST_USER_ID)
+    getAuthUserId()
+      .then((uid) => getUserProfile(uid))
       .then((p) => {
         setPrefs(p.notificationPreferences);
         setUnreadCount(p.stats.alerts);
@@ -63,10 +64,6 @@ export default function SettingsScreen() {
       .catch(() => {}); // non-critical — fall back to defaults silently
   }, []);
 
-  /**
-   * Optimistically update a single pref key, then sync to the server.
-   * On failure: revert the optimistic change.
-   */
   function handlePrefChange<K extends keyof ApiNotificationPreferences>(
     key: K,
     value: ApiNotificationPreferences[K],
@@ -74,10 +71,12 @@ export default function SettingsScreen() {
     const previous = prefs;
     const updated  = { ...prefs, [key]: value };
     setPrefs(updated); // optimistic
-    updateNotificationPreferences(TEST_USER_ID, { [key]: value }).catch(() => {
-      setPrefs(previous); // revert on failure
-      Alert.alert('Sync Failed', 'Could not save preference. Please try again.');
-    });
+    getAuthUserId()
+      .then((uid) => updateNotificationPreferences(uid, { [key]: value }))
+      .catch(() => {
+        setPrefs(previous); // revert on failure
+        Alert.alert('Sync Failed', 'Could not save preference. Please try again.');
+      });
   }
 
   function handleSignOut() {

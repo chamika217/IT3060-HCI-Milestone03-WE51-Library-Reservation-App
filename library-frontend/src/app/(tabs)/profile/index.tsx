@@ -27,8 +27,9 @@ import {
   Divider,
 } from '@/components/shared';
 import { getUserProfile } from '@/services/api';
+import { getAuthUserId } from '@/services/api';
 import { ApiUserProfile } from '@/features/notifications/types';
-import { TEST_USER_ID } from '@/constants/testAuth';
+
 
 // ─── Campus ID barcode visual ─────────────────────────────────────────────────
 
@@ -154,7 +155,8 @@ export default function ProfileScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getUserProfile(TEST_USER_ID);
+      const uid = await getAuthUserId();
+      const data = await getUserProfile(uid);
       setProfile(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load profile.');

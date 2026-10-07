@@ -29,8 +29,9 @@ import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  getAuthUserId,
 } from '@/services/api';
-import { TEST_USER_ID } from '@/constants/testAuth';
+
 
 // ─── Filter tab type ──────────────────────────────────────────────────────────
 
@@ -58,7 +59,8 @@ export default function NotificationsScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getNotifications(TEST_USER_ID);
+      const uid = await getAuthUserId();
+      const data = await getNotifications(uid);
       setNotifications(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load notifications.');
@@ -83,14 +85,13 @@ export default function NotificationsScreen() {
 
   // ── Mark all read ──────────────────────────────────────────────────────
   async function handleMarkAllRead() {
-    // Optimistic update
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, status: 'read' as const })),
     );
     try {
-      await markAllNotificationsRead(TEST_USER_ID);
+      const uid = await getAuthUserId();
+      await markAllNotificationsRead(uid);
     } catch {
-      // Revert on failure by re-fetching
       fetchNotifications();
     }
   }

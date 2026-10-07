@@ -22,9 +22,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { ScreenHeader, StatusBadge, BottomNavBar, IonIcon } from '@/components/shared';
-import { getUserProfile, updateUserProfile } from '@/services/api';
+import { getUserProfile, updateUserProfile, getAuthUserId } from '@/services/api';
 import { ApiUserProfile } from '@/features/notifications/types';
-import { TEST_USER_ID } from '@/constants/testAuth';
 
 // ─── Field wrapper ────────────────────────────────────────────────────────────
 
@@ -61,7 +60,8 @@ export default function EditProfileScreen() {
 
   // Fetch profile and seed form fields
   useEffect(() => {
-    getUserProfile(TEST_USER_ID)
+    getAuthUserId()
+      .then((uid) => getUserProfile(uid))
       .then((p) => {
         setProfile(p);
         setFullName(p.fullName);
@@ -80,7 +80,8 @@ export default function EditProfileScreen() {
     }
     setSaving(true);
     try {
-      await updateUserProfile(TEST_USER_ID, { fullName: fullName.trim(), phone: phone.trim() });
+      const uid = await getAuthUserId();
+      await updateUserProfile(uid, { fullName: fullName.trim(), phone: phone.trim() });
       Alert.alert('Saved', 'Your profile has been updated.', [
         { text: 'OK', onPress: () => router.back() },
       ]);

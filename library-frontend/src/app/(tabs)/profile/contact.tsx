@@ -26,9 +26,9 @@ import {
   BottomNavBar,
   IonIcon,
 } from '@/components/shared';
-import { getUserProfile, sendContactMessage } from '@/services/api';
+import { getUserProfile, sendContactMessage, getAuthUserId } from '@/services/api';
 import { CONTACT_SUBJECTS, ContactSubject } from '@/features/profile/types';
-import { TEST_USER_ID } from '@/constants/testAuth';
+
 
 const MAX_MESSAGE_LENGTH = 500;
 
@@ -143,13 +143,14 @@ export default function ContactScreen() {
 
   // Load profile to prefill locked fields
   useEffect(() => {
-    getUserProfile(TEST_USER_ID)
+    getAuthUserId()
+      .then((uid) => getUserProfile(uid))
       .then((p) => {
         setFullNameDisplay(p.fullName);
         setStudentIdDisplay(p.studentId);
         setAlertCount(p.stats.alerts);
       })
-      .catch(() => {}); // non-critical — fields just stay empty
+      .catch(() => {}); // non-critical — fields stay empty
   }, []);
 
   async function handleSend() {
@@ -159,8 +160,9 @@ export default function ContactScreen() {
     }
     setSending(true);
     try {
+      const uid = await getAuthUserId();
       await sendContactMessage({
-        userId:        TEST_USER_ID,
+        userId:        uid,
         subject,
         message:       message.trim(),
         attachmentUrl: attachment ?? undefined,
