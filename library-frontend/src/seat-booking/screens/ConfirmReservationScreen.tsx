@@ -100,7 +100,15 @@ export default function ConfirmReservationScreen() {
         {
           text: 'View My Bookings',
           onPress: () => {
-            router.push('/seats/my-bookings');
+            router.push({
+              pathname: '/seats/my-bookings',
+              params: {
+                seatNumber,
+                roomName,
+                dateOption,
+                timeRange: selectedSlot?.timeRange || '02:30 PM – 04:30 PM',
+              },
+            });
           },
         },
       ]

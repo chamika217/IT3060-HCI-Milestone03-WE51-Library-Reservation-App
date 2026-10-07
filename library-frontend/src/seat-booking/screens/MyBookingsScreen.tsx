@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CampusBreadcrumb } from '../components/CampusBreadcrumb';
+import { QrCheckInModal } from '../components/QrCheckInModal';
 import { ReadingRoomsHeader } from '../components/ReadingRoomsHeader';
 import { ReservationCard } from '../components/ReservationCard';
 import { SeatBottomNav, TabName } from '../components/SeatBottomNav';
@@ -22,11 +23,49 @@ import { ReservationItem } from '../types/seatBooking';
 const BACKEND_CANCEL_URL = 'http://localhost:5000/api/reservations';
 
 export default function MyBookingsScreen() {
+  const params = useLocalSearchParams<{
+    seatNumber?: string;
+    timeRange?: string;
+    dateOption?: string;
+    roomName?: string;
+  }>();
+
   const [activeTabSegment, setActiveTabSegment] = useState<'active' | 'past'>('active');
-  const [reservations, setReservations] = useState<ReservationItem[]>([
-    MOCK_ACTIVE_RESERVATION,
-  ]);
   const [bottomTab, setBottomTab] = useState<TabName>('Bookings');
+  const [qrModalVisible, setQrModalVisible] = useState<boolean>(false);
+
+  // Compute active reservation from route params or fallback to initial mock reservation
+  const activeReservation: ReservationItem = useMemo(() => {
+    if (params.seatNumber) {
+      const cleanNum = params.seatNumber.startsWith('Seat') ? params.seatNumber : `Seat ${params.seatNumber}`;
+      return {
+        _id: `res-${params.seatNumber}`,
+        seatNumber: cleanNum,
+        roomName: params.roomName || 'Individual Study Area',
+        roomLevel: 1,
+        roomCode: 'L2-NORTH',
+        dateLabel: params.dateOption === 'tomorrow' ? 'Tomorrow' : 'Today',
+        timeRange: params.timeRange || '02:30 PM – 04:30 PM',
+        durationLabel: '2 Hours Reserved',
+        amenitiesLabel: 'AC Outlet + LAN',
+        status: 'upcoming',
+        passCode: '9982',
+        startsInLabel: 'Starts in 22 mins',
+        deskDeliveryBook: 'Software Architecture: Foundations',
+      };
+    }
+    return MOCK_ACTIVE_RESERVATION;
+  }, [params.seatNumber, params.timeRange, params.dateOption, params.roomName]);
+
+  const [userCancelledId, setUserCancelledId] = useState<string | null>(null);
+  const [selectedPassReservation, setSelectedPassReservation] = useState<ReservationItem | null>(null);
+
+  const reservations = useMemo(() => {
+    if (userCancelledId === activeReservation._id) {
+      return [];
+    }
+    return [activeReservation];
+  }, [activeReservation, userCancelledId]);
 
   const handleChangeSeat = (reservation: ReservationItem) => {
     Alert.alert(
@@ -64,7 +103,7 @@ export default function MyBookingsScreen() {
               // Ignore backend offline errors
             }
 
-            setReservations((prev) => prev.filter((r) => r._id !== reservation._id));
+            setUserCancelledId(reservation._id);
             Alert.alert('Booking Cancelled', 'Your reservation has been successfully cancelled.');
           },
         },
@@ -73,11 +112,8 @@ export default function MyBookingsScreen() {
   };
 
   const handleViewPass = (reservation: ReservationItem) => {
-    Alert.alert(
-      `Check-In Pass #${reservation.passCode}`,
-      `Seat: ${reservation.seatNumber}\nTime: ${reservation.dateLabel} ${reservation.timeRange}\nGate: SLIIT Turnstile #2\n\nShow this code or tap your RFID student card at the entrance gate.`,
-      [{ text: 'Close' }]
-    );
+    setSelectedPassReservation(reservation);
+    setQrModalVisible(true);
   };
 
   return (
@@ -249,6 +285,19 @@ export default function MyBookingsScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* QR Check-In Pass Modal (Screen 05) */}
+      <QrCheckInModal
+        visible={qrModalVisible}
+        seatNumber={selectedPassReservation?.seatNumber || activeReservation.seatNumber}
+        roomName={selectedPassReservation?.roomName || activeReservation.roomName}
+        timeRange={selectedPassReservation?.timeRange || activeReservation.timeRange}
+        dateLabel={selectedPassReservation?.dateLabel || activeReservation.dateLabel}
+        passCode={selectedPassReservation?.passCode || '9982'}
+        token={`KSN-${(selectedPassReservation?.seatNumber || activeReservation.seatNumber).replace(/Seat\s*/i, '')}-9982`}
+        pin="8492"
+        onClose={() => setQrModalVisible(false)}
+      />
 
       {/* Bottom Nav */}
       <SeatBottomNav activeTab={bottomTab} onTabPress={setBottomTab} />
