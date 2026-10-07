@@ -6,7 +6,7 @@ import { Colors, Shadows } from '../constants/designSystem';
 import { SeatItem } from '../types/seatBooking';
 
 interface SeatDetailCardProps {
-  seat: SeatItem;
+  seat: SeatItem | null;
   roomName?: string;
   roomLevel?: number;
 }
@@ -16,6 +16,20 @@ export const SeatDetailCard: React.FC<SeatDetailCardProps> = ({
   roomName = 'Individual Study Area',
   roomLevel = 1,
 }) => {
+  if (!seat) {
+    return (
+      <View style={styles.placeholderContainer}>
+        <Ionicons name="hand-left-outline" size={24} color={Colors.primary} />
+        <View style={styles.placeholderTextGroup}>
+          <Text style={styles.placeholderTitle}>Select a Seat on Map</Text>
+          <Text style={styles.placeholderSubtitle}>
+            Tap any available desk (white box) on the layout grid above to pick your desk.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.cardContainer}>
       {/* Header Row */}
@@ -73,6 +87,33 @@ export const SeatDetailCard: React.FC<SeatDetailCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  placeholderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#F0F5FD',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#B8D3F8',
+  },
+  placeholderTextGroup: {
+    flex: 1,
+  },
+  placeholderTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textDark,
+    marginBottom: 2,
+  },
+  placeholderSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+  },
   cardContainer: {
     marginHorizontal: 20,
     marginBottom: 20,

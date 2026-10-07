@@ -61,7 +61,7 @@ export interface TimeSlotOption {
   id: string;
   timeRange: string; // e.g. "10:30 AM – 12:30 PM"
   tagline: string; // e.g. "Peak Focus Block • 2.0 hrs"
-  status: 'active' | 'open' | 'full';
+  status: 'active' | 'open' | 'full' | 'expired';
 }
 
 export interface BookItem {

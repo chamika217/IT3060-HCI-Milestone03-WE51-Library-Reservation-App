@@ -17,7 +17,7 @@ import { ReadingRoomsHeader } from '../components/ReadingRoomsHeader';
 import { SeatBottomNav, TabName } from '../components/SeatBottomNav';
 import { TimeSlotSelector } from '../components/TimeSlotSelector';
 import { Colors, Shadows } from '../constants/designSystem';
-import { MOCK_TIME_SLOTS } from '../mock/roomsData';
+import { getCalculatedTimeSlots } from '../mock/roomsData';
 import { BookItem, DateOption } from '../types/seatBooking';
 
 const BACKEND_RESERVATIONS_URL = 'http://localhost:5000/api/reservations';
@@ -30,20 +30,34 @@ export default function ConfirmReservationScreen() {
   }>();
 
   const seatNumber = params.seatNumber || 'B-14';
-  const dateOption = params.dateOption || 'today';
+  const dateOption: DateOption = params.dateOption === 'tomorrow' ? 'tomorrow' : 'today';
   const roomName = params.roomName || 'Individual Study Area';
 
-  const [selectedSlotId, setSelectedSlotId] = useState<string>('t1');
+  const timeSlots = getCalculatedTimeSlots(dateOption);
+  const initialValidSlotId =
+    timeSlots.find((s) => s.status !== 'expired')?.id || timeSlots[0]?.id || 't-1430';
+
+  const [selectedSlotId, setSelectedSlotId] = useState<string>(initialValidSlotId);
   const [agreed, setAgreed] = useState<boolean>(true);
   const [deliveryBook, setDeliveryBook] = useState<BookItem | undefined>();
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<TabName>('Bookings');
+
+  const selectedSlot = timeSlots.find((s) => s.id === selectedSlotId) || timeSlots[0];
 
   const handleConfirmReservation = async () => {
     if (!agreed) {
       Alert.alert(
         'Check-In Agreement Required',
         'Please accept the 15-minute check-in policy before confirming your reservation.'
+      );
+      return;
+    }
+
+    if (selectedSlot?.status === 'expired') {
+      Alert.alert(
+        'Invalid Slot',
+        'This slot has already passed for today. Please pick a current or upcoming slot.'
       );
       return;
     }
@@ -56,8 +70,8 @@ export default function ConfirmReservationScreen() {
       if (dateOption === 'tomorrow') {
         now.setDate(now.getDate() + 1);
       }
-      const startTime = new Date(now.setHours(10, 30, 0, 0)).toISOString();
-      const endTime = new Date(now.setHours(12, 30, 0, 0)).toISOString();
+      const startTime = new Date(now.setHours(14, 30, 0, 0)).toISOString();
+      const endTime = new Date(now.setHours(16, 30, 0, 0)).toISOString();
 
       await fetch(BACKEND_RESERVATIONS_URL, {
         method: 'POST',
@@ -81,7 +95,7 @@ export default function ConfirmReservationScreen() {
 
     Alert.alert(
       'Reservation Confirmed! 🎉',
-      `Seat ${seatNumber} has been successfully reserved for ${dateOption === 'today' ? 'Today' : 'Tomorrow'} (10:30 AM - 12:30 PM).`,
+      `Seat ${seatNumber} has been successfully reserved for ${dateOption === 'today' ? 'Today' : 'Tomorrow'} (${selectedSlot?.timeRange || '02:30 PM – 04:30 PM'}).`,
       [
         {
           text: 'View My Bookings',
@@ -151,7 +165,7 @@ export default function ConfirmReservationScreen() {
         {/* Schedule Controls (Time Slots) */}
         <TimeSlotSelector
           dateOption={dateOption}
-          slots={MOCK_TIME_SLOTS}
+          slots={timeSlots}
           selectedSlotId={selectedSlotId}
           onSelectSlot={setSelectedSlotId}
         />

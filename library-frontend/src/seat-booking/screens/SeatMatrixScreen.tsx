@@ -27,24 +27,20 @@ export default function SeatMatrixScreen() {
   const roomName = params.roomName || 'Individual Study Area';
 
   const [selectedDate, setSelectedDate] = useState<DateOption>('today');
-  const [selectedSeat, setSelectedSeat] = useState<SeatItem>({
-    _id: 's14',
-    seatNumber: 'B-14',
-    pod: 'POD B',
-    status: 'chosen',
-    powerSocket: '230V Socket',
-    usbPort: '65W Type-C',
-    acoustics: 'Silent Zone',
-  });
+  const [selectedSeat, setSelectedSeat] = useState<SeatItem | null>(null);
   const [activeTab, setActiveTab] = useState<TabName>('Search');
 
   const handleSelectSeat = (seat: SeatItem) => {
-    setSelectedSeat(seat);
+    if (selectedSeat?._id === seat._id) {
+      setSelectedSeat(null);
+    } else {
+      setSelectedSeat(seat);
+    }
   };
 
   const handleConfirmSeat = () => {
     if (!selectedSeat) {
-      Alert.alert('Please Select a Seat', 'Select an available seat on the layout to proceed.');
+      Alert.alert('Please Select a Seat', 'Tap an available seat on the map grid to proceed.');
       return;
     }
     // Navigate to Screen 03 (Confirm Reservation) with room, seat, and selected date parameters
@@ -93,35 +89,38 @@ export default function SeatMatrixScreen() {
           locationTitle={`Level 1 ${roomName}`}
           totalSeatsBadge="400+ SEATS"
           podSections={MOCK_POD_SECTIONS}
-          selectedSeatId={selectedSeat._id}
+          selectedSeatId={selectedSeat?._id || null}
           onSelectSeat={handleSelectSeat}
         />
 
-        {/* Selected Seat Details Card */}
-        {selectedSeat && (
-          <SeatDetailCard
-            seat={selectedSeat}
-            roomName={roomName}
-            roomLevel={1}
-          />
-        )}
+        {/* Selected Seat Details Card / Instruction Placeholder */}
+        <SeatDetailCard
+          seat={selectedSeat}
+          roomName={roomName}
+          roomLevel={1}
+        />
       </ScrollView>
 
       {/* Sticky Bottom Action Button */}
-      {selectedSeat && (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.confirmButton}
-            onPress={handleConfirmSeat}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.confirmButtonText}>
-              Confirm & Book Seat {selectedSeat.seatNumber}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={[styles.confirmButton, !selectedSeat && styles.confirmButtonDisabled]}
+          onPress={handleConfirmSeat}
+          disabled={!selectedSeat}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={selectedSeat ? 'checkmark-circle-outline' : 'hand-left-outline'}
+            size={20}
+            color="#FFFFFF"
+          />
+          <Text style={styles.confirmButtonText}>
+            {selectedSeat
+              ? `Confirm & Book Seat ${selectedSeat.seatNumber}`
+              : 'Select a Desk on Map to Continue'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Bottom Nav Bar */}
       <SeatBottomNav activeTab={activeTab} onTabPress={setActiveTab} />
@@ -153,6 +152,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     paddingVertical: 14,
     borderRadius: 14,
+  },
+  confirmButtonDisabled: {
+    backgroundColor: '#94A3B8',
+    opacity: 0.8,
   },
   confirmButtonText: {
     fontSize: 15,

@@ -21,7 +21,7 @@ export const SeatMatrixGrid: React.FC<SeatMatrixGridProps> = ({
   onSelectSeat,
 }) => {
   const renderSeatBox = (seat: SeatItem) => {
-    const isChosen = seat._id === selectedSeatId || seat.status === 'chosen';
+    const isChosen = seat._id === selectedSeatId;
     const isReserved = seat.status === 'reserved';
     const isTaken = seat.status === 'taken';
 

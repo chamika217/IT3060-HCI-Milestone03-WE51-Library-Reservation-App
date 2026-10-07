@@ -29,6 +29,8 @@ export const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
     return `${dateOption === 'today' ? 'Today' : 'Tomorrow'}, ${dayStr} ${num} ${monthStr}`;
   };
 
+  const allExpired = slots.length > 0 && slots.every((s) => s.status === 'expired');
+
   return (
     <View style={styles.container}>
       {/* Date Summary bar carried over from Screen 02 */}
@@ -40,52 +42,94 @@ export const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
 
       {/* Slots Header */}
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Booking Windows</Text>
+        <Text style={styles.sectionTitle}>Library Booking Windows (8 AM - 8 PM)</Text>
         <View style={styles.maxBadge}>
           <Text style={styles.maxBadgeText}>Max 2 slots</Text>
         </View>
       </View>
 
+      {allExpired && (
+        <View style={styles.closedNoticeCard}>
+          <Ionicons name="time-outline" size={18} color={Colors.warning} />
+          <Text style={styles.closedNoticeText}>
+            All slots for Today have passed (Library Hours: 8:00 AM – 8:00 PM). Please select Tomorrow to book!
+          </Text>
+        </View>
+      )}
+
       {/* Radio list of time slots */}
       <View style={styles.slotsList}>
         {slots.map((slot) => {
           const isSelected = slot.id === selectedSlotId;
+          const isExpired = slot.status === 'expired';
 
           return (
             <TouchableOpacity
               key={slot.id}
               style={[
                 styles.slotCard,
-                isSelected ? styles.slotCardActive : styles.slotCardInactive,
+                isExpired
+                  ? styles.slotCardExpired
+                  : isSelected
+                    ? styles.slotCardActive
+                    : styles.slotCardInactive,
               ]}
-              onPress={() => onSelectSlot(slot.id)}
+              onPress={() => !isExpired && onSelectSlot(slot.id)}
+              disabled={isExpired}
               activeOpacity={0.8}
             >
               {/* Radio Indicator */}
-              <View style={styles.radioOuter}>
-                {isSelected && <View style={styles.radioInner} />}
+              <View
+                style={[
+                  styles.radioOuter,
+                  isExpired && styles.radioOuterExpired,
+                ]}
+              >
+                {isSelected && !isExpired && <View style={styles.radioInner} />}
               </View>
 
               {/* Slot Details */}
               <View style={styles.slotDetails}>
-                <Text style={styles.timeRangeText}>{slot.timeRange}</Text>
-                <Text style={styles.taglineText}>{slot.tagline}</Text>
+                <Text
+                  style={[
+                    styles.timeRangeText,
+                    isExpired && styles.textExpired,
+                  ]}
+                >
+                  {slot.timeRange}
+                </Text>
+                <Text
+                  style={[
+                    styles.taglineText,
+                    isExpired && styles.textExpiredSub,
+                  ]}
+                >
+                  {isExpired ? 'Slot Window Ended' : slot.tagline}
+                </Text>
               </View>
 
               {/* Status Badge */}
               <View
                 style={[
                   styles.statusPill,
-                  isSelected ? styles.statusPillActive : styles.statusPillOpen,
+                  isExpired
+                    ? styles.statusPillExpired
+                    : isSelected
+                      ? styles.statusPillActive
+                      : styles.statusPillOpen,
                 ]}
               >
                 <Text
                   style={[
                     styles.statusPillText,
-                    isSelected ? styles.statusTextActive : styles.statusTextOpen,
+                    isExpired
+                      ? styles.statusTextExpired
+                      : isSelected
+                        ? styles.statusTextActive
+                        : styles.statusTextOpen,
                   ]}
                 >
-                  {isSelected ? 'ACTIVE' : 'OPEN'}
+                  {isExpired ? 'PAST' : isSelected ? 'ACTIVE' : 'OPEN'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -147,6 +191,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textSecondary,
   },
+  closedNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: Colors.warningSoft,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE4CE',
+  },
+  closedNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.warning,
+    lineHeight: 16,
+  },
   slotsList: {
     paddingHorizontal: 20,
     gap: 10,
@@ -167,6 +230,11 @@ const styles = StyleSheet.create({
   slotCardInactive: {
     borderColor: Colors.border,
   },
+  slotCardExpired: {
+    backgroundColor: '#F5F7FA',
+    borderColor: '#E2E8F0',
+    opacity: 0.6,
+  },
   radioOuter: {
     width: 20,
     height: 20,
@@ -176,6 +244,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+  },
+  radioOuterExpired: {
+    borderColor: '#CBD5E1',
   },
   radioInner: {
     width: 10,
@@ -196,6 +267,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.textSecondary,
   },
+  textExpired: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  textExpiredSub: {
+    color: '#94A3B8',
+  },
   statusPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -207,6 +285,9 @@ const styles = StyleSheet.create({
   statusPillOpen: {
     backgroundColor: '#F0F4F8',
   },
+  statusPillExpired: {
+    backgroundColor: '#E2E8F0',
+  },
   statusPillText: {
     fontSize: 10,
     fontWeight: '800',
@@ -217,5 +298,8 @@ const styles = StyleSheet.create({
   },
   statusTextOpen: {
     color: Colors.textSecondary,
+  },
+  statusTextExpired: {
+    color: '#64748B',
   },
 });

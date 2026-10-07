@@ -120,7 +120,7 @@ export const MOCK_POD_SECTIONS: PodSection[] = [
     badge: 'Silent 35 dB',
     seats: [
       { _id: 's13', seatNumber: 'B-13', pod: 'POD B', status: 'available', powerSocket: '230V Socket', usbPort: '65W Type-C', acoustics: 'Silent Zone' },
-      { _id: 's14', seatNumber: 'B-14', pod: 'POD B', status: 'chosen', powerSocket: '230V Socket', usbPort: '65W Type-C', acoustics: 'Silent Zone' },
+      { _id: 's14', seatNumber: 'B-14', pod: 'POD B', status: 'available', powerSocket: '230V Socket', usbPort: '65W Type-C', acoustics: 'Silent Zone' },
       { _id: 's15', seatNumber: 'B-15', pod: 'POD B', status: 'available', powerSocket: '230V Socket', usbPort: '65W Type-C', acoustics: 'Silent Zone' },
       { _id: 's16', seatNumber: 'B-16', pod: 'POD B', status: 'available', powerSocket: '230V Socket', usbPort: '65W Type-C', acoustics: 'Silent Zone' },
       { _id: 's17', seatNumber: 'B-17', pod: 'POD B', status: 'available', powerSocket: '230V Socket', usbPort: '65W Type-C', acoustics: 'Silent Zone' },
@@ -129,11 +129,59 @@ export const MOCK_POD_SECTIONS: PodSection[] = [
   },
 ];
 
-export const MOCK_TIME_SLOTS: TimeSlotOption[] = [
-  { id: 't1', timeRange: '10:30 AM – 12:30 PM', tagline: 'Peak Focus Block • 2.0 hrs', status: 'active' },
-  { id: 't2', timeRange: '12:30 PM – 02:30 PM', tagline: 'Midday Window • 2.0 hrs', status: 'open' },
-  { id: 't3', timeRange: '02:30 PM – 04:30 PM', tagline: 'Afternoon Block • 2.0 hrs', status: 'open' },
+// Library opening hours: 8:00 AM – 8:00 PM (08:00 – 20:00)
+export interface LibrarySlotDef {
+  id: string;
+  startHour: number;
+  startMin: number;
+  endHour: number;
+  endMin: number;
+  timeRange: string;
+  tagline: string;
+}
+
+export const ALL_LIBRARY_SLOTS: LibrarySlotDef[] = [
+  { id: 't-0800', startHour: 8, startMin: 0, endHour: 10, endMin: 0, timeRange: '08:00 AM – 10:00 AM', tagline: 'Early Morning Block • 2.0 hrs' },
+  { id: 't-1000', startHour: 10, startMin: 0, endHour: 12, endMin: 0, timeRange: '10:00 AM – 12:00 PM', tagline: 'Mid-Morning Window • 2.0 hrs' },
+  { id: 't-1030', startHour: 10, startMin: 30, endHour: 12, endMin: 30, timeRange: '10:30 AM – 12:30 PM', tagline: 'Peak Focus Block • 2.0 hrs' },
+  { id: 't-1230', startHour: 12, startMin: 30, endHour: 14, endMin: 30, timeRange: '12:30 PM – 02:30 PM', tagline: 'Midday Window • 2.0 hrs' },
+  { id: 't-1430', startHour: 14, startMin: 30, endHour: 16, endMin: 30, timeRange: '02:30 PM – 04:30 PM', tagline: 'Afternoon Block • 2.0 hrs' },
+  { id: 't-1630', startHour: 16, startMin: 30, endHour: 18, endMin: 30, timeRange: '04:30 PM – 06:30 PM', tagline: 'Evening Session • 2.0 hrs' },
+  { id: 't-1800', startHour: 18, startMin: 0, endHour: 20, endMin: 0, timeRange: '06:00 PM – 08:00 PM', tagline: 'Late Focus Window • 2.0 hrs' },
 ];
+
+export function getCalculatedTimeSlots(dateOption: 'today' | 'tomorrow'): TimeSlotOption[] {
+  const now = new Date();
+  const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
+  return ALL_LIBRARY_SLOTS.map((slot) => {
+    const slotEndMinutes = slot.endHour * 60 + slot.endMin;
+    const slotStartMinutes = slot.startHour * 60 + slot.startMin;
+
+    let status: 'active' | 'open' | 'expired' = 'open';
+
+    if (dateOption === 'today') {
+      if (currentTotalMinutes >= slotEndMinutes) {
+        status = 'expired';
+      } else if (currentTotalMinutes >= slotStartMinutes && currentTotalMinutes < slotEndMinutes) {
+        status = 'active';
+      } else {
+        status = 'open';
+      }
+    } else {
+      status = 'open';
+    }
+
+    return {
+      id: slot.id,
+      timeRange: slot.timeRange,
+      tagline: slot.tagline,
+      status: status,
+    };
+  });
+}
+
+export const MOCK_TIME_SLOTS: TimeSlotOption[] = getCalculatedTimeSlots('today');
 
 export const MOCK_DESK_BOOK: BookItem = {
   id: 'b1',
@@ -151,7 +199,7 @@ export const MOCK_ACTIVE_RESERVATION: ReservationItem = {
   roomLevel: 1,
   roomCode: 'L2-NORTH',
   dateLabel: 'Today',
-  timeRange: '10:30 – 12:30',
+  timeRange: '02:30 PM – 04:30 PM',
   durationLabel: '2 Hours Reserved',
   amenitiesLabel: 'AC Outlet + LAN',
   status: 'upcoming',
@@ -159,3 +207,4 @@ export const MOCK_ACTIVE_RESERVATION: ReservationItem = {
   startsInLabel: 'Starts in 22 mins',
   deskDeliveryBook: 'Software Architecture: Foundations',
 };
+
