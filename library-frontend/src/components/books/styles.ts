@@ -1,0 +1,22 @@
+import { StyleSheet } from 'react-native';
+export const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#F4F7FB' },
+  content: { padding: 20, gap: 16, width: '100%', maxWidth: 960, alignSelf: 'center' },
+  title: { fontSize: 28, fontWeight: '800', color: '#17213A' },
+  heading: { fontSize: 19, fontWeight: '700', color: '#17213A' },
+  copy: { fontSize: 15, lineHeight: 23, color: '#52617B' },
+  card: { padding: 18, backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#DDE4F0', gap: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  grow: { flex: 1, gap: 5 },
+  cover: { width: 64, height: 88, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  coverLetter: { fontSize: 32, fontWeight: '800', color: '#243561' },
+  input: { backgroundColor: '#FFF', color: '#17213A', borderWidth: 1, borderColor: '#CBD5E8', borderRadius: 10, padding: 14, fontSize: 16 },
+  button: { backgroundColor: '#2864F0', padding: 15, borderRadius: 10, alignItems: 'center', minHeight: 48 },
+  buttonText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
+  link: { color: '#2459CD', fontWeight: '700', paddingVertical: 10 },
+  error: { color: '#A52C40', lineHeight: 22 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { borderWidth: 1, borderColor: '#CCD6EA', padding: 12, borderRadius: 10, backgroundColor: '#FFF' },
+  selected: { backgroundColor: '#DCE8FF', borderColor: '#2864F0' },
+  disabled: { opacity: 0.45 },
+});

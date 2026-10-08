@@ -1,0 +1,4 @@
+{
+  "typescript.tsconfig.fallbackToRootDir": false,
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}
