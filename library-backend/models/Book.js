@@ -1,4 +1,12 @@
 const mongoose = require('mongoose');
+module.exports = mongoose.models.Book || mongoose.model('Book', new mongoose.Schema({
+  title: { type: String, required: true, trim: true },
+  author: { type: String, required: true, trim: true },
+  isbn: { type: String, required: true, unique: true, trim: true },
+  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+  copies: { type: Number, default: 1, min: 0 },
+  available: { type: Number, default: 1, min: 0 },
+}, { timestamps: true }));
 const reservation = new mongoose.Schema({
   _id: String, userId: { type: String, required: true }, pickupDate: String,
   pickupWindow: String, pickupCode: String,

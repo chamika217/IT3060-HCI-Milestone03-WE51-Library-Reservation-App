@@ -1,3 +1,4 @@
+export { default } from '../admin/AdminApp';
 import ReadingRoomsScreen from '@/seat-booking/screens/ReadingRoomsScreen';
 
 export default function HomeScreen() {

@@ -61,6 +61,20 @@ mongoose.connect(process.env.MONGODB_URI, {
     // Don't crash — allow the server to stay up so other routes still work
   });
 
+
+app.use('/api/admin/auth', require('./routes/admin/auth'));
+app.use('/api/admin/books', require('./routes/admin/books'));
+app.use('/api/admin/categories', require('./routes/admin/categories'));
+app.use('/api/admin/users', require('./routes/admin/users'));
+app.use('/api/admin/reservations', require('./routes/admin/reservations'));
+app.use('/api/admin/seats', require('./routes/admin/seats'));
+app.use('/api/admin/announcements', require('./routes/admin/announcements'));
+app.use('/api/admin/stats', require('./routes/admin/stats'));
+
+
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch((err) => console.error('MongoDB connection error:', err));
 // Reconnect logging
 mongoose.connection.on('disconnected', () =>
   console.warn('⚠ MongoDB disconnected. Will retry automatically.'),
@@ -87,3 +101,4 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log('Server running on port ' + PORT));
+
