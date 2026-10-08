@@ -4,8 +4,9 @@
  * Responsibilities:
  *  - Hold all confirmed bookings made during the current session.
  *  - Expose addBooking() to record a new reservation.
- *  - Expose markCompleted() to immediately move a booking to the past-history
- *    list (e.g. user releases the seat early or checks out).
+ *  - Expose cancelBooking() to remove an active booking.
+ *  - Expose markCompleted() to move a booking to Past History immediately
+ *    (e.g. user releases the seat early or checks out).
  *  - Expose selector helpers so screens can derive live occupancy and history.
  *
  * No persistence (AsyncStorage etc.) is used — this is demo/prototype scope.
@@ -28,17 +29,13 @@ import { Booking, DateOption } from '../types/seatBooking';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Returns true when the booking's time slot has already ended.
- * For 'today' bookings we compare against the current wall-clock time.
- * For 'tomorrow' bookings the slot can never be in the past (from today's
- * perspective), unless explicitly completed.
+ * Returns true when a 'today' booking's slot end time has passed.
+ * 'tomorrow' bookings are never considered expired by clock alone.
  */
 function isSlotExpired(booking: Booking): boolean {
   if (booking.dateOption === 'tomorrow') return false;
-
   const slot = ALL_LIBRARY_SLOTS.find((s) => s.id === booking.slotId);
   if (!slot) return false;
-
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const slotEndMinutes = slot.endHour * 60 + slot.endMin;
@@ -51,13 +48,16 @@ function isSlotExpired(booking: Booking): boolean {
 
 interface BookingState {
   bookings: Booking[];
-  /** IDs of bookings explicitly marked completed (e.g. early release). */
+  /** IDs explicitly marked completed (early release / check-out). */
   completedIds: Set<string>;
+  /** IDs explicitly cancelled by the user. */
+  cancelledIds: Set<string>;
 }
 
 type BookingAction =
   | { type: 'ADD_BOOKING'; payload: Booking }
-  | { type: 'MARK_COMPLETED'; id: string };
+  | { type: 'MARK_COMPLETED'; id: string }
+  | { type: 'CANCEL_BOOKING'; id: string };
 
 function bookingReducer(state: BookingState, action: BookingAction): BookingState {
   switch (action.type) {
@@ -68,28 +68,40 @@ function bookingReducer(state: BookingState, action: BookingAction): BookingStat
       next.add(action.id);
       return { ...state, completedIds: next };
     }
+    case 'CANCEL_BOOKING': {
+      const next = new Set(state.cancelledIds);
+      next.add(action.id);
+      return { ...state, cancelledIds: next };
+    }
     default:
       return state;
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Context
+// Context value
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface BookingContextValue {
   bookings: Booking[];
   addBooking: (booking: Omit<Booking, 'id'>) => void;
+  /** Cancel an active booking — removes it from the Active tab. */
+  cancelBooking: (bookingId: string) => void;
   /**
    * Mark a booking as completed so it moves to Past History immediately,
    * regardless of whether its time slot has ended.
    */
   markCompleted: (bookingId: string) => void;
-  /** Count of bookings in a room that are NOT yet past/completed. */
+  /**
+   * Active (non-past, non-cancelled) bookings.
+   * These are the items shown in the Active tab.
+   */
+  getActiveBookings: () => Booking[];
+  /** Count of active bookings in a room (drives occupancy %). */
   getOccupiedCount: (roomCode: string) => number;
   /**
-   * Returns true if the given seat+slot+date combination is already booked
-   * AND has not yet expired or been completed.
+   * Returns true if the given seat+slot+date combination is actively booked
+   * (not cancelled, not expired, not completed).
    */
   isSeatTaken: (
     roomCode: string,
@@ -98,9 +110,10 @@ interface BookingContextValue {
     dateOption: DateOption
   ) => boolean;
   /**
-   * Returns all bookings that belong in Past History:
+   * Past History items:
    *   - explicitly marked completed, OR
-   *   - 'today' booking whose slot end time has passed.
+   *   - 'today' bookings whose slot end time has passed.
+   * Cancelled bookings are excluded (they simply vanish).
    */
   getPastBookings: () => Booking[];
 }
@@ -115,6 +128,7 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(bookingReducer, {
     bookings: [],
     completedIds: new Set<string>(),
+    cancelledIds: new Set<string>(),
   });
 
   const addBooking = useCallback((booking: Omit<Booking, 'id'>) => {
@@ -124,55 +138,77 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const cancelBooking = useCallback((bookingId: string) => {
+    dispatch({ type: 'CANCEL_BOOKING', id: bookingId });
+  }, []);
+
   const markCompleted = useCallback((bookingId: string) => {
     dispatch({ type: 'MARK_COMPLETED', id: bookingId });
   }, []);
 
-  /** A booking is "past" if it was explicitly completed OR its slot has ended. */
+  /** A booking is "past" when completed or its slot has expired. */
   const isPast = useCallback(
     (b: Booking) => state.completedIds.has(b.id) || isSlotExpired(b),
     [state.completedIds]
   );
 
+  /** A booking is visible in the Active tab when it is not cancelled and not past. */
+  const isActive = useCallback(
+    (b: Booking) => !state.cancelledIds.has(b.id) && !isPast(b),
+    [state.cancelledIds, isPast]
+  );
+
+  const getActiveBookings = useCallback(
+    () => state.bookings.filter(isActive),
+    [state.bookings, isActive]
+  );
+
   const getOccupiedCount = useCallback(
     (roomCode: string) =>
-      state.bookings.filter((b) => b.roomCode === roomCode && !isPast(b)).length,
-    [state.bookings, isPast]
+      state.bookings.filter((b) => b.roomCode === roomCode && isActive(b)).length,
+    [state.bookings, isActive]
   );
 
   const isSeatTaken = useCallback(
-    (
-      roomCode: string,
-      seatNumber: string,
-      slotId: string,
-      dateOption: DateOption
-    ) =>
+    (roomCode: string, seatNumber: string, slotId: string, dateOption: DateOption) =>
       state.bookings.some(
         (b) =>
-          !isPast(b) &&
+          isActive(b) &&
           b.roomCode === roomCode &&
           b.seatNumber === seatNumber &&
           b.slotId === slotId &&
           b.dateOption === dateOption
       ),
-    [state.bookings, isPast]
+    [state.bookings, isActive]
   );
 
+  // Cancelled bookings are silently dropped — they do NOT appear in history.
   const getPastBookings = useCallback(
-    () => state.bookings.filter(isPast),
-    [state.bookings, isPast]
+    () => state.bookings.filter((b) => !state.cancelledIds.has(b.id) && isPast(b)),
+    [state.bookings, state.cancelledIds, isPast]
   );
 
   const value = useMemo<BookingContextValue>(
     () => ({
       bookings: state.bookings,
       addBooking,
+      cancelBooking,
       markCompleted,
+      getActiveBookings,
       getOccupiedCount,
       isSeatTaken,
       getPastBookings,
     }),
-    [state.bookings, addBooking, markCompleted, getOccupiedCount, isSeatTaken, getPastBookings]
+    [
+      state.bookings,
+      addBooking,
+      cancelBooking,
+      markCompleted,
+      getActiveBookings,
+      getOccupiedCount,
+      isSeatTaken,
+      getPastBookings,
+    ]
   );
 
   return (

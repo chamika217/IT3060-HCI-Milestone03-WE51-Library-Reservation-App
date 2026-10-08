@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
@@ -17,91 +17,79 @@ import { ReadingRoomsHeader } from '../components/ReadingRoomsHeader';
 import { ReservationCard } from '../components/ReservationCard';
 import { SeatBottomNav, TabName } from '../components/SeatBottomNav';
 import { Colors, Shadows } from '../constants/designSystem';
-import { ALL_LIBRARY_SLOTS, MOCK_ACTIVE_RESERVATION } from '../mock/roomsData';
+import { ALL_LIBRARY_SLOTS, MOCK_ROOMS } from '../mock/roomsData';
 import { useBookingStore } from '../store/bookingStore';
 import { Booking, ReservationItem } from '../types/seatBooking';
 
 const BACKEND_CANCEL_URL = 'http://localhost:5000/api/reservations';
 
-export default function MyBookingsScreen() {
-  const params = useLocalSearchParams<{
-    seatNumber?: string;
-    timeRange?: string;
-    dateOption?: string;
-    roomName?: string;
-  }>();
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper — convert a store Booking into the shape ReservationCard expects
+// ─────────────────────────────────────────────────────────────────────────────
+function bookingToReservationItem(b: Booking): ReservationItem {
+  const room = MOCK_ROOMS.find((r) => r.code === b.roomCode);
+  const slot = ALL_LIBRARY_SLOTS.find((s) => s.id === b.slotId);
+  const cleanSeat = b.seatNumber.startsWith('Seat') ? b.seatNumber : `Seat ${b.seatNumber}`;
 
-  const { getPastBookings } = useBookingStore();
+  return {
+    _id: b.id,
+    seatNumber: cleanSeat,
+    roomName: room?.name ?? 'Study Area',
+    roomLevel: room?.level ?? 1,
+    roomCode: b.roomCode,
+    dateLabel: b.dateOption === 'tomorrow' ? 'Tomorrow' : 'Today',
+    timeRange: slot?.timeRange ?? b.timeRange,
+    durationLabel: '2 Hours Reserved',
+    amenitiesLabel: 'AC Outlet + LAN',
+    status: 'upcoming',
+    passCode: b.id.slice(-4).toUpperCase(),
+    startsInLabel: b.dateOption === 'tomorrow' ? 'Tomorrow' : undefined,
+    deskDeliveryBook: undefined,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────────────────────────────────────
+export default function MyBookingsScreen() {
+  const { getActiveBookings, cancelBooking, getPastBookings } = useBookingStore();
 
   const [activeTabSegment, setActiveTabSegment] = useState<'active' | 'past'>('active');
   const [bottomTab, setBottomTab] = useState<TabName>('Bookings');
   const [qrModalVisible, setQrModalVisible] = useState<boolean>(false);
-
-  // Compute active reservation from route params or fall back to mock
-  const activeReservation: ReservationItem = useMemo(() => {
-    if (params.seatNumber) {
-      const cleanNum = params.seatNumber.startsWith('Seat')
-        ? params.seatNumber
-        : `Seat ${params.seatNumber}`;
-      return {
-        _id: `res-${params.seatNumber}`,
-        seatNumber: cleanNum,
-        roomName: params.roomName || 'Individual Study Area',
-        roomLevel: 1,
-        roomCode: 'L2-NORTH',
-        dateLabel: params.dateOption === 'tomorrow' ? 'Tomorrow' : 'Today',
-        timeRange: params.timeRange || '02:30 PM – 04:30 PM',
-        durationLabel: '2 Hours Reserved',
-        amenitiesLabel: 'AC Outlet + LAN',
-        status: 'upcoming',
-        passCode: '9982',
-        startsInLabel: 'Starts in 22 mins',
-        deskDeliveryBook: 'Software Architecture: Foundations',
-      };
-    }
-    return MOCK_ACTIVE_RESERVATION;
-  }, [params.seatNumber, params.timeRange, params.dateOption, params.roomName]);
-
-  const [userCancelledId, setUserCancelledId] = useState<string | null>(null);
   const [selectedPassReservation, setSelectedPassReservation] =
     useState<ReservationItem | null>(null);
 
-  const reservations = useMemo(() => {
-    if (userCancelledId === activeReservation._id) return [];
-    return [activeReservation];
-  }, [activeReservation, userCancelledId]);
+  // ── Active tab data ───────────────────────────────────────────────────────
+  // Derived fresh on each render so expired slots disappear automatically.
+  const activeBookings = getActiveBookings();
+  const reservations: ReservationItem[] = useMemo(
+    () => activeBookings.map(bookingToReservationItem),
+    [activeBookings]
+  );
 
-  // ── Past history from the booking store ──────────────────────────────────
+  // ── Past tab data ─────────────────────────────────────────────────────────
   const pastBookings: Booking[] = useMemo(
     () => getPastBookings(),
-    // Re-derive on every render so expired slots appear automatically
+    // Re-derive when tab switches so expired slots show up immediately
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [getPastBookings, activeTabSegment]
   );
 
-  /** Resolve the human-readable end time for a past booking. */
-  const slotEndLabel = (slotId: string): string => {
-    const slot = ALL_LIBRARY_SLOTS.find((s) => s.id === slotId);
-    return slot?.timeRange ?? '—';
-  };
+  const slotEndLabel = (slotId: string) =>
+    ALL_LIBRARY_SLOTS.find((s) => s.id === slotId)?.timeRange ?? '—';
 
-  /** Map dateOption to a short display label. */
-  const dateBadge = (dateOption: string): string =>
+  const dateBadge = (dateOption: string) =>
     dateOption === 'tomorrow' ? 'Tomorrow' : 'Today';
 
-
+  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleChangeSeat = (reservation: ReservationItem) => {
     Alert.alert(
       'Change Seat Reservation',
       `Modify seat or time slot for ${reservation.seatNumber}?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Select New Seat',
-          onPress: () => {
-            router.push('/seats/matrix');
-          },
-        },
+        { text: 'Select New Seat', onPress: () => router.push('/seats/matrix') },
       ]
     );
   };
@@ -116,6 +104,7 @@ export default function MyBookingsScreen() {
           text: 'Yes, Cancel',
           style: 'destructive',
           onPress: async () => {
+            // Attempt backend cancel (silent on failure)
             try {
               await fetch(`${BACKEND_CANCEL_URL}/${reservation._id}/cancel`, {
                 method: 'PATCH',
@@ -123,31 +112,18 @@ export default function MyBookingsScreen() {
                 body: JSON.stringify({ user: '650000000000000000000001' }),
               });
             } catch {
-              // Ignore backend offline errors
+              // Offline — continue anyway
             }
 
-            setUserCancelledId(reservation._id);
-            Alert.alert('Booking Cancelled', 'Your reservation has been successfully cancelled.');
+            cancelBooking(reservation._id);
+            Alert.alert(
+              'Booking Cancelled',
+              'Your reservation has been successfully cancelled.'
+            );
           },
         },
       ]
     );
-  };
-
-  const handleTabPress = (tab: TabName) => {
-    setBottomTab(tab);
-    if (tab === 'Home') {
-      router.push('/seats');
-    } else if (tab === 'Alerts') {
-      router.push({
-        pathname: '/seats/auto-release-warning',
-        params: {
-          seatNumber: activeReservation.seatNumber,
-          roomName: activeReservation.roomName,
-          timeRange: activeReservation.timeRange,
-        },
-      });
-    }
   };
 
   const handleViewPass = (reservation: ReservationItem) => {
@@ -155,16 +131,44 @@ export default function MyBookingsScreen() {
     setQrModalVisible(true);
   };
 
+  const handleTabPress = (tab: TabName) => {
+    setBottomTab(tab);
+    if (tab === 'Home') {
+      router.push('/seats');
+    } else if (tab === 'Alerts') {
+      // Pass the first active booking's details if one exists
+      const first = reservations[0];
+      router.push({
+        pathname: '/seats/auto-release-warning',
+        params: first
+          ? {
+              seatNumber: first.seatNumber,
+              roomName: first.roomName,
+              timeRange: first.timeRange,
+            }
+          : {},
+      });
+    }
+  };
+
+  // QR modal falls back gracefully when there is no selected reservation
+  const qrSeat = selectedPassReservation?.seatNumber ?? '';
+  const qrRoom = selectedPassReservation?.roomName ?? '';
+  const qrTime = selectedPassReservation?.timeRange ?? '';
+  const qrDate = selectedPassReservation?.dateLabel ?? '';
+  const qrPass = selectedPassReservation?.passCode ?? '0000';
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* Top Header */}
+      {/* Header */}
       <ReadingRoomsHeader
         onNotificationPress={() => Alert.alert('Notifications', 'No new alerts.')}
         onProfilePress={() => Alert.alert('Profile', 'Student Account #2026-IT')}
       />
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Breadcrumb Header */}
+        {/* Breadcrumb */}
         <CampusBreadcrumb
           campusName="SLIIT LIBRARY"
           spacesCount="MALABE"
@@ -173,13 +177,10 @@ export default function MyBookingsScreen() {
           onBackPress={() => router.back()}
         />
 
-        {/* Segmented Active / Past Tabs */}
+        {/* Segment selector */}
         <View style={styles.segmentedContainer}>
           <TouchableOpacity
-            style={[
-              styles.segmentPill,
-              activeTabSegment === 'active' && styles.segmentActive,
-            ]}
+            style={[styles.segmentPill, activeTabSegment === 'active' && styles.segmentActive]}
             onPress={() => setActiveTabSegment('active')}
             activeOpacity={0.8}
           >
@@ -191,9 +192,7 @@ export default function MyBookingsScreen() {
             <Text
               style={[
                 styles.segmentText,
-                activeTabSegment === 'active'
-                  ? styles.segmentTextActive
-                  : styles.segmentTextInactive,
+                activeTabSegment === 'active' ? styles.segmentTextActive : styles.segmentTextInactive,
               ]}
             >
               Active ({reservations.length})
@@ -201,10 +200,7 @@ export default function MyBookingsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.segmentPill,
-              activeTabSegment === 'past' && styles.segmentActive,
-            ]}
+            style={[styles.segmentPill, activeTabSegment === 'past' && styles.segmentActive]}
             onPress={() => setActiveTabSegment('past')}
             activeOpacity={0.8}
           >
@@ -216,33 +212,34 @@ export default function MyBookingsScreen() {
             <Text
               style={[
                 styles.segmentText,
-                activeTabSegment === 'past'
-                  ? styles.segmentTextActive
-                  : styles.segmentTextInactive,
+                activeTabSegment === 'past' ? styles.segmentTextActive : styles.segmentTextInactive,
               ]}
             >
-            Past History ({pastBookings.length})
+              Past History ({pastBookings.length})
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Gate Sensor Status Bar */}
-        <View style={styles.sensorBar}>
-          <View style={styles.sensorInfo}>
-            <Ionicons name="checkmark-circle-outline" size={16} color={Colors.success} />
-            <Text style={styles.sensorText}>GATE SENSOR STATUS</Text>
-          </View>
-
-          <View style={styles.sensorDetails}>
-            <Text style={styles.terminalText}>SLIIT-WIFI-04 • Terminal #L2-N</Text>
-            <View style={styles.onlineBadge}>
-              <View style={styles.greenDot} />
-              <Text style={styles.onlineText}>ONLINE</Text>
+        {/* Gate sensor bar — only shown when there are active bookings */}
+        {reservations.length > 0 && (
+          <View style={styles.sensorBar}>
+            <View style={styles.sensorInfo}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={Colors.success} />
+              <Text style={styles.sensorText}>GATE SENSOR STATUS</Text>
+            </View>
+            <View style={styles.sensorDetails}>
+              <Text style={styles.terminalText}>
+                SLIIT-WIFI-04 • Terminal #{reservations[0].roomCode}
+              </Text>
+              <View style={styles.onlineBadge}>
+                <View style={styles.greenDot} />
+                <Text style={styles.onlineText}>ONLINE</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
-        {/* Active Reservations List */}
+        {/* ── Active tab ── */}
         {activeTabSegment === 'active' ? (
           reservations.length > 0 ? (
             reservations.map((res) => (
@@ -256,28 +253,41 @@ export default function MyBookingsScreen() {
             ))
           ) : (
             <View style={styles.emptyCard}>
-              <Ionicons name="calendar-clear-outline" size={32} color={Colors.textSecondary} />
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="calendar-clear-outline" size={34} color={Colors.primary} />
+              </View>
               <Text style={styles.emptyTitle}>No Active Reservations</Text>
               <Text style={styles.emptySubtitle}>
-                You currently have no upcoming seat bookings. Explore study rooms to select a desk!
+                You have no upcoming seat bookings. Browse available study rooms and reserve a desk.
               </Text>
+              <TouchableOpacity
+                style={styles.bookSeatBtn}
+                onPress={() => router.push('/seats')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="search-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.bookSeatBtnText}>Book a Seat</Text>
+              </TouchableOpacity>
             </View>
           )
-        ) : pastBookings.length === 0 ? (
-          /* ── Empty state ── */
+        ) : /* ── Past tab ── */
+        pastBookings.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Ionicons name="time-outline" size={32} color={Colors.textSecondary} />
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="time-outline" size={34} color={Colors.primary} />
+            </View>
             <Text style={styles.emptyTitle}>No Past Bookings Yet</Text>
             <Text style={styles.emptySubtitle}>
               Your completed and expired reservations will appear here automatically.
             </Text>
           </View>
         ) : (
-          /* ── Dynamic past history list ── */
           <View style={styles.pastContainer}>
             <View style={styles.pastHeaderRow}>
               <Text style={styles.pastTitle}>Past Booking History</Text>
-              <Text style={styles.pastCount}>{pastBookings.length} record{pastBookings.length !== 1 ? 's' : ''}</Text>
+              <Text style={styles.pastCount}>
+                {pastBookings.length} record{pastBookings.length !== 1 ? 's' : ''}
+              </Text>
             </View>
 
             {pastBookings.map((booking, idx) => {
@@ -288,7 +298,6 @@ export default function MyBookingsScreen() {
                   key={booking.id}
                   style={[styles.pastRow, isLast && styles.pastRowLast]}
                 >
-                  {/* Left: icon + text */}
                   <View style={styles.pastRowLeft}>
                     <View style={styles.pastIconBox}>
                       <Ionicons name="desktop-outline" size={14} color={Colors.textSecondary} />
@@ -300,16 +309,18 @@ export default function MyBookingsScreen() {
                       </Text>
                     </View>
                   </View>
-
-                  {/* Right: status tag */}
-                  <View style={[
-                    styles.statusTagBase,
-                    isCompleted ? styles.statusTagCompleted : styles.statusTagOngoing,
-                  ]}>
-                    <Text style={[
-                      styles.statusTagText,
-                      isCompleted ? styles.statusTagTextCompleted : styles.statusTagTextOngoing,
-                    ]}>
+                  <View
+                    style={[
+                      styles.statusTagBase,
+                      isCompleted ? styles.statusTagCompleted : styles.statusTagOngoing,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusTagText,
+                        isCompleted ? styles.statusTagTextCompleted : styles.statusTagTextOngoing,
+                      ]}
+                    >
                       {isCompleted ? 'COMPLETED' : 'ONGOING'}
                     </Text>
                   </View>
@@ -319,27 +330,25 @@ export default function MyBookingsScreen() {
           </View>
         )}
 
-        {/* Campus Attendance Policy Card */}
+        {/* Campus Attendance Policy */}
         <View style={styles.policyCard}>
           <View style={styles.policyTitleRow}>
             <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
             <Text style={styles.policyTitle}>CAMPUS ATTENDANCE POLICY</Text>
           </View>
-
           <View style={styles.bulletItem}>
             <Text style={styles.bulletDot}>•</Text>
             <Text style={styles.bulletText}>
-              Check in within <Text style={styles.boldText}>15 minutes</Text> of reservation start to avoid automated release.
+              Check in within <Text style={styles.boldText}>15 minutes</Text> of reservation start
+              to avoid automated release.
             </Text>
           </View>
-
           <View style={styles.bulletItem}>
             <Text style={styles.bulletDot}>•</Text>
             <Text style={styles.bulletText}>
               Two consecutive no-shows temporarily restrict online seat reservations for 48 hours.
             </Text>
           </View>
-
           <View style={styles.bulletItem}>
             <Text style={styles.bulletDot}>•</Text>
             <Text style={styles.bulletText}>
@@ -349,7 +358,7 @@ export default function MyBookingsScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky Bottom Action Button */}
+      {/* Sticky QR button — only when there are active reservations */}
       {reservations.length > 0 && (
         <View style={styles.bottomBar}>
           <TouchableOpacity
@@ -363,17 +372,20 @@ export default function MyBookingsScreen() {
         </View>
       )}
 
-      {/* QR Check-In Pass Modal (Screen 05) */}
+      {/* QR Check-In Pass Modal */}
       <QrCheckInModal
         visible={qrModalVisible}
-        seatNumber={selectedPassReservation?.seatNumber || activeReservation.seatNumber}
-        roomName={selectedPassReservation?.roomName || activeReservation.roomName}
-        timeRange={selectedPassReservation?.timeRange || activeReservation.timeRange}
-        dateLabel={selectedPassReservation?.dateLabel || activeReservation.dateLabel}
-        passCode={selectedPassReservation?.passCode || '9982'}
-        token={`KSN-${(selectedPassReservation?.seatNumber || activeReservation.seatNumber).replace(/Seat\s*/i, '')}-9982`}
-        pin="8492"
-        onClose={() => setQrModalVisible(false)}
+        seatNumber={qrSeat}
+        roomName={qrRoom}
+        timeRange={qrTime}
+        dateLabel={qrDate}
+        passCode={qrPass}
+        token={`KSN-${qrSeat.replace(/Seat\s*/i, '')}-${qrPass}`}
+        pin={qrPass.padStart(4, '0')}
+        onClose={() => {
+          setQrModalVisible(false);
+          setSelectedPassReservation(null);
+        }}
       />
 
       {/* Bottom Nav */}
@@ -382,6 +394,9 @@ export default function MyBookingsScreen() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -422,6 +437,7 @@ const styles = StyleSheet.create({
   segmentTextInactive: {
     color: Colors.textSecondary,
   },
+  // Gate sensor bar
   sensorBar: {
     marginHorizontal: 20,
     marginBottom: 16,
@@ -474,30 +490,57 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.success,
   },
+  // Empty state
   emptyCard: {
     alignItems: 'center',
-    justifyContent: 'center',
     marginHorizontal: 20,
     marginBottom: 20,
-    padding: 30,
+    padding: 32,
     backgroundColor: Colors.card,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: 8,
+    gap: 10,
+    ...Shadows.soft,
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: Colors.textDark,
-    marginTop: 4,
   },
   emptySubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
+    maxWidth: 280,
   },
+  bookSeatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    ...Shadows.soft,
+  },
+  bookSeatBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  // Past history
   pastContainer: {
     marginHorizontal: 20,
     marginBottom: 20,
@@ -506,7 +549,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: 0,
+    ...Shadows.soft,
   },
   pastHeaderRow: {
     flexDirection: 'row',
@@ -583,6 +626,7 @@ const styles = StyleSheet.create({
   statusTagTextOngoing: {
     color: Colors.primary,
   },
+  // Policy card
   policyCard: {
     marginHorizontal: 20,
     marginBottom: 20,
@@ -626,6 +670,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textDark,
   },
+  // Sticky QR bar
   bottomBar: {
     paddingHorizontal: 20,
     paddingVertical: 12,
