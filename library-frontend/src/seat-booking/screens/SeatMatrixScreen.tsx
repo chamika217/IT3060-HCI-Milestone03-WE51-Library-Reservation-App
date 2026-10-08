@@ -24,9 +24,10 @@ import { useBookingStore } from '../store/bookingStore';
 import { DateOption, PodSection, SeatItem } from '../types/seatBooking';
 
 export default function SeatMatrixScreen() {
-  const params = useLocalSearchParams<{ roomCode?: string; roomName?: string }>();
+  const params = useLocalSearchParams<{ roomCode?: string; roomName?: string; replacingBookingId?: string }>();
   const roomCode = params.roomCode || 'L2-NORTH';
   const roomName = params.roomName || 'Individual Study Area';
+  const replacingBookingId = params.replacingBookingId ?? '';
 
   const { isSeatTaken } = useBookingStore();
 
@@ -83,6 +84,8 @@ export default function SeatMatrixScreen() {
         powerSocket: selectedSeat.powerSocket || '230V Socket',
         usbPort: selectedSeat.usbPort || '65W Type-C',
         acoustics: selectedSeat.acoustics || 'Silent Zone',
+        // Forward the ID of the booking being replaced (empty string = fresh booking)
+        replacingBookingId,
       },
     });
   };

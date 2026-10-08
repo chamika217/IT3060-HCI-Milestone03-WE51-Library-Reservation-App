@@ -86,10 +86,23 @@ export default function MyBookingsScreen() {
   const handleChangeSeat = (reservation: ReservationItem) => {
     Alert.alert(
       'Change Seat Reservation',
-      `Modify seat or time slot for ${reservation.seatNumber}?`,
+      `Select a new seat to replace ${reservation.seatNumber}. Your current booking will be cancelled automatically when you confirm the new one.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Select New Seat', onPress: () => router.push('/seats/matrix') },
+        {
+          text: 'Select New Seat',
+          onPress: () =>
+            router.push({
+              pathname: '/seats/matrix',
+              params: {
+                // Pass the active booking's original room so the grid stays
+                // in the same room, and the booking ID so Confirm can replace it.
+                roomCode: reservation.roomCode,
+                roomName: reservation.roomName,
+                replacingBookingId: reservation._id,
+              },
+            }),
+        },
       ]
     );
   };
@@ -321,7 +334,7 @@ export default function MyBookingsScreen() {
                         isCompleted ? styles.statusTagTextCompleted : styles.statusTagTextOngoing,
                       ]}
                     >
-                      {isCompleted ? 'COMPLETED' : 'ONGOING'}
+                      {isCompleted ? 'COMPLETED' : 'CANCELLED'}
                     </Text>
                   </View>
                 </View>

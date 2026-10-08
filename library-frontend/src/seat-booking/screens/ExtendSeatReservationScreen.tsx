@@ -18,6 +18,12 @@ import { useBookingStore } from '../store/bookingStore';
 import { Booking } from '../types/seatBooking';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+/** Library closes at 20:00 — no extension may push a booking past this. */
+const LIBRARY_CLOSE_MINUTES = 20 * 60; // 1200
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 interface ExtensionOption {
@@ -103,6 +109,13 @@ export default function ExtendSeatReservationScreen() {
     return 0;
   }, [activeBooking, getBookingEndMinutes, slot]);
 
+  /**
+   * True when the booking is on the final library slot (6:00 PM – 8:00 PM)
+   * or any prior extension has already pushed the end to closing time.
+   * Extensions are completely blocked in this state.
+   */
+  const isLastSlot: boolean = endMinutes >= LIBRARY_CLOSE_MINUTES;
+
   // ── Real-time remaining countdown ─────────────────────────────────────────
   const [remainingSeconds, setRemainingSeconds] = useState<number>(() => {
     const now = new Date();
@@ -133,17 +146,19 @@ export default function ExtendSeatReservationScreen() {
       const newEnd = endMinutes + d.addMinutes;
       const newEndTimeLabel = minutesToLabel(newEnd);
 
-      // A clash exists when any OTHER active booking for the SAME seat starts
-      // before our proposed new end time, i.e. the next slot's startMinutes
-      // falls inside our proposed extension window.
       let clashReason: string | undefined;
-      if (activeBooking) {
+
+      // ── Rule 1: cannot extend past library closing time (20:00) ──────────
+      if (newEnd > LIBRARY_CLOSE_MINUTES) {
+        clashReason = `Library closes at 08:00 PM — extension would exceed closing time`;
+      }
+
+      // ── Rule 2: another student has the same seat in the overlap window ───
+      if (!clashReason && activeBooking) {
         const clashingSlot = ALL_LIBRARY_SLOTS.find((s) => {
           const slotStart = s.startHour * 60 + s.startMin;
-          // The slot starts within our proposed extension window
           const inWindow = slotStart >= endMinutes && slotStart < newEnd;
           if (!inWindow) return false;
-          // Check if someone already booked that seat in that slot
           return isSeatTaken(
             activeBooking.roomCode,
             activeBooking.seatNumber,
@@ -177,6 +192,14 @@ export default function ExtendSeatReservationScreen() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleConfirm = () => {
+    // Hard block — final slot of the day
+    if (isLastSlot) {
+      Alert.alert(
+        'Extension Not Allowed',
+        'The library closes at 08:00 PM. Reservations on the final session slot (6:00 PM – 8:00 PM) cannot be extended.'
+      );
+      return;
+    }
     const chosen = extensionOptions[selectedOption];
     if (!chosen || chosen.status === 'clash') {
       Alert.alert(
@@ -311,81 +334,99 @@ export default function ExtendSeatReservationScreen() {
           </View>
         </View>
 
-        {/* Extension Options */}
+        {/* Extension Options — blocked on final slot, otherwise interactive */}
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardSectionLabel}>SELECT EXTENSION DURATION</Text>
             <Text style={styles.stepLabel}>Step 2 of 2</Text>
           </View>
 
-          {extensionOptions.map((option, idx) => {
-            const isSelected = selectedOption === idx;
-            const isClash = option.status === 'clash';
+          {isLastSlot ? (
+            /* ── Final-slot locked banner ── */
+            <View style={styles.lockedBanner}>
+              <View style={styles.lockedIconCircle}>
+                <Ionicons name="lock-closed" size={22} color={Colors.error} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lockedTitle}>Extension Not Available</Text>
+                <Text style={styles.lockedBody}>
+                  Your booking is on the{' '}
+                  <Text style={styles.lockedBold}>final session slot (6:00 PM – 8:00 PM)</Text>.
+                  {' '}The library closes at 08:00 PM and extensions past closing time are not
+                  permitted by SLIIT Library policy.
+                </Text>
+              </View>
+            </View>
+          ) : (
+            extensionOptions.map((option, idx) => {
+              const isSelected = selectedOption === idx;
+              const isClash = option.status === 'clash';
 
-            return (
-              <TouchableOpacity
-                key={idx}
-                style={[
-                  styles.optionCard,
-                  isSelected && !isClash && styles.optionCardSelected,
-                  isClash && styles.optionCardUnavailable,
-                ]}
-                onPress={() => !isClash && setSelectedOption(idx)}
-                activeOpacity={isClash ? 1 : 0.8}
-                disabled={isClash}
-              >
-                <View style={styles.optionLeft}>
-                  <View style={[
-                    styles.radioDot,
-                    isSelected && !isClash && styles.radioDotSelected,
-                    isClash && styles.radioDotDisabled,
-                  ]}>
-                    {isSelected && !isClash && <View style={styles.radioDotInner} />}
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.optionTitleRow}>
-                      <Text style={[styles.optionTitle, isClash && styles.optionTitleUnavailable]}>
-                        {option.label}
-                      </Text>
-                      <Text style={styles.optionDelta}>{option.deltaLabel}</Text>
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[
+                    styles.optionCard,
+                    isSelected && !isClash && styles.optionCardSelected,
+                    isClash && styles.optionCardUnavailable,
+                  ]}
+                  onPress={() => !isClash && setSelectedOption(idx)}
+                  activeOpacity={isClash ? 1 : 0.8}
+                  disabled={isClash}
+                >
+                  <View style={styles.optionLeft}>
+                    <View style={[
+                      styles.radioDot,
+                      isSelected && !isClash && styles.radioDotSelected,
+                      isClash && styles.radioDotDisabled,
+                    ]}>
+                      {isSelected && !isClash && <View style={styles.radioDotInner} />}
                     </View>
 
-                    {isClash ? (
-                      <View style={styles.clashRow}>
-                        <Ionicons name="warning-outline" size={11} color={Colors.error} />
-                        <Text style={styles.clashText}>
-                          Extension Unavailable: {option.clashReason}
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.optionTitleRow}>
+                        <Text style={[styles.optionTitle, isClash && styles.optionTitleUnavailable]}>
+                          {option.label}
                         </Text>
+                        <Text style={styles.optionDelta}>{option.deltaLabel}</Text>
+                      </View>
+
+                      {isClash ? (
+                        <View style={styles.clashRow}>
+                          <Ionicons name="warning-outline" size={11} color={Colors.error} />
+                          <Text style={styles.clashText}>
+                            Extension Unavailable: {option.clashReason}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.optionEndTime}>
+                          New End Time: {option.newEndTimeLabel}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.optionRight}>
+                    {isClash ? (
+                      <View style={styles.clashPill}>
+                        <Text style={styles.clashPillText}>CLASH</Text>
                       </View>
                     ) : (
-                      <Text style={styles.optionEndTime}>
-                        New End Time: {option.newEndTimeLabel}
-                      </Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.availableText}>● Available</Text>
+                        {option.recommended && (
+                          <Text style={styles.recommendedText}>Recommended</Text>
+                        )}
+                        {!option.recommended && (
+                          <Text style={styles.noClashText}>No Clash</Text>
+                        )}
+                      </View>
                     )}
                   </View>
-                </View>
-
-                <View style={styles.optionRight}>
-                  {isClash ? (
-                    <View style={styles.clashPill}>
-                      <Text style={styles.clashPillText}>CLASH</Text>
-                    </View>
-                  ) : (
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={styles.availableText}>● Available</Text>
-                      {option.recommended && (
-                        <Text style={styles.recommendedText}>Recommended</Text>
-                      )}
-                      {!option.recommended && (
-                        <Text style={styles.noClashText}>No Clash</Text>
-                      )}
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
 
         {/* Extension Policy */}
@@ -406,14 +447,21 @@ export default function ExtendSeatReservationScreen() {
           <TouchableOpacity
             style={[
               styles.confirmBtn,
-              extensionOptions[selectedOption]?.status === 'clash' && styles.confirmBtnDisabled,
+              (isLastSlot || extensionOptions[selectedOption]?.status === 'clash') && styles.confirmBtnDisabled,
             ]}
             onPress={handleConfirm}
             activeOpacity={0.85}
+            disabled={isLastSlot}
           >
-            <Ionicons name="refresh-circle-outline" size={18} color="#FFFFFF" />
+            <Ionicons
+              name={isLastSlot ? 'lock-closed-outline' : 'refresh-circle-outline'}
+              size={18}
+              color="#FFFFFF"
+            />
             <Text style={styles.confirmBtnText}>
-              Confirm & Extend Time ({extensionOptions[selectedOption]?.label ?? ''})
+              {isLastSlot
+                ? 'Extension Not Available — Final Slot'
+                : `Confirm & Extend Time (${extensionOptions[selectedOption]?.label ?? ''})`}
             </Text>
           </TouchableOpacity>
 
@@ -581,4 +629,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28, paddingVertical: 13, borderRadius: 12, ...Shadows.soft,
   },
   goBookBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  // ── Final-slot locked banner ──
+  lockedBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    backgroundColor: Colors.errorSoft,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    padding: 16,
+  },
+  lockedIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    borderWidth: 1,
+    borderColor: '#FAC8CA',
+  },
+  lockedTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.error,
+    marginBottom: 6,
+  },
+  lockedBody: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  lockedBold: {
+    fontWeight: '700',
+    color: Colors.textDark,
+  },
 });

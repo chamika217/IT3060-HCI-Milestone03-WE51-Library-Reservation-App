@@ -29,14 +29,17 @@ export default function ConfirmReservationScreen() {
     dateOption?: DateOption;
     roomName?: string;
     roomCode?: string;
+    replacingBookingId?: string;
   }>();
 
   const seatNumber = params.seatNumber || 'B-14';
   const dateOption: DateOption = params.dateOption === 'tomorrow' ? 'tomorrow' : 'today';
   const roomName = params.roomName || 'Individual Study Area';
   const roomCode = params.roomCode || 'L2-NORTH';
+  /** When non-empty this is a seat-change flow — the old booking must be cancelled atomically. */
+  const replacingBookingId = params.replacingBookingId ?? '';
 
-  const { addBooking } = useBookingStore();
+  const { addBooking, cancelBooking } = useBookingStore();
 
   const timeSlots = getCalculatedTimeSlots(dateOption);
   const initialValidSlotId =
@@ -98,7 +101,13 @@ export default function ConfirmReservationScreen() {
 
     setSubmitting(false);
 
-    // Record the booking in the shared store so occupancy updates live
+    // If this is a seat-change, cancel the old booking first so it never
+    // coexists with the new one in the active list.
+    if (replacingBookingId) {
+      cancelBooking(replacingBookingId);
+    }
+
+    // Record the new booking in the shared store so occupancy updates live
     addBooking({
       roomCode,
       seatNumber,
@@ -107,9 +116,16 @@ export default function ConfirmReservationScreen() {
       timeRange: selectedSlot?.timeRange || '02:30 PM – 04:30 PM',
     });
 
+    const confirmTitle = replacingBookingId
+      ? 'Seat Changed Successfully ✅'
+      : 'Reservation Confirmed! 🎉';
+    const confirmBody = replacingBookingId
+      ? `Your booking has been updated to Seat ${seatNumber} for ${dateOption === 'today' ? 'Today' : 'Tomorrow'} (${selectedSlot?.timeRange || '02:30 PM – 04:30 PM'}).`
+      : `Seat ${seatNumber} has been successfully reserved for ${dateOption === 'today' ? 'Today' : 'Tomorrow'} (${selectedSlot?.timeRange || '02:30 PM – 04:30 PM'}).`;
+
     Alert.alert(
-      'Reservation Confirmed! 🎉',
-      `Seat ${seatNumber} has been successfully reserved for ${dateOption === 'today' ? 'Today' : 'Tomorrow'} (${selectedSlot?.timeRange || '02:30 PM – 04:30 PM'}).`,
+      confirmTitle,
+      confirmBody,
       [
         {
           text: 'View My Bookings',
@@ -198,25 +214,7 @@ export default function ConfirmReservationScreen() {
           onToggleDelivery={(_enabled, book) => setDeliveryBook(book)}
         />
 
-        {/* Student Identity Card */}
-        <View style={styles.studentCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>KP</Text>
-          </View>
-
-          <View style={styles.studentInfo}>
-            <View style={styles.nameRow}>
-              <Text style={styles.studentName}>K. D. PERERA</Text>
-              <Text style={styles.yearTag}>YR 3</Text>
-            </View>
-            <Text style={styles.studentDetails}>IT21048290 • Computing</Text>
-          </View>
-
-          <View style={styles.rfidBadge}>
-            <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
-            <Text style={styles.rfidText}>RFID Synced</Text>
-          </View>
-        </View>
+      
 
         {/* Agreement Checkbox */}
         <TouchableOpacity
@@ -245,7 +243,11 @@ export default function ConfirmReservationScreen() {
         >
           <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
           <Text style={styles.confirmButtonText}>
-            {submitting ? 'Confirming...' : `Confirm & Reserve Seat ${seatNumber}`}
+            {submitting
+              ? 'Confirming...'
+              : replacingBookingId
+              ? `Confirm Seat Change to ${seatNumber}`
+              : `Confirm & Reserve Seat ${seatNumber}`}
           </Text>
         </TouchableOpacity>
       </View>
