@@ -28,20 +28,6 @@ import { Booking, DateOption } from '../types/seatBooking';
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns true when a 'today' booking's slot end time has passed.
- * 'tomorrow' bookings are never considered expired by clock alone.
- */
-function isSlotExpired(booking: Booking): boolean {
-  if (booking.dateOption === 'tomorrow') return false;
-  const slot = ALL_LIBRARY_SLOTS.find((s) => s.id === booking.slotId);
-  if (!slot) return false;
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const slotEndMinutes = slot.endHour * 60 + slot.endMin;
-  return nowMinutes >= slotEndMinutes;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // State & Actions
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,12 +38,15 @@ interface BookingState {
   completedIds: Set<string>;
   /** IDs explicitly cancelled by the user. */
   cancelledIds: Set<string>;
+  /** Extra minutes added to a booking beyond its original slot end. */
+  extensionMins: Record<string, number>;
 }
 
 type BookingAction =
   | { type: 'ADD_BOOKING'; payload: Booking }
   | { type: 'MARK_COMPLETED'; id: string }
-  | { type: 'CANCEL_BOOKING'; id: string };
+  | { type: 'CANCEL_BOOKING'; id: string }
+  | { type: 'EXTEND_BOOKING'; id: string; addMinutes: number };
 
 function bookingReducer(state: BookingState, action: BookingAction): BookingState {
   switch (action.type) {
@@ -72,6 +61,13 @@ function bookingReducer(state: BookingState, action: BookingAction): BookingStat
       const next = new Set(state.cancelledIds);
       next.add(action.id);
       return { ...state, cancelledIds: next };
+    }
+    case 'EXTEND_BOOKING': {
+      const prev = state.extensionMins[action.id] ?? 0;
+      return {
+        ...state,
+        extensionMins: { ...state.extensionMins, [action.id]: prev + action.addMinutes },
+      };
     }
     default:
       return state;
@@ -92,6 +88,17 @@ interface BookingContextValue {
    * regardless of whether its time slot has ended.
    */
   markCompleted: (bookingId: string) => void;
+  /**
+   * Add extra minutes to an active booking's effective end time.
+   * Cumulative — calling twice adds both deltas.
+   */
+  extendBooking: (bookingId: string, addMinutes: number) => void;
+  /**
+   * Returns the effective end time of a booking in wall-clock minutes
+   * (hours * 60 + mins), accounting for any extensions.
+   * Returns null if the slotId is not found.
+   */
+  getBookingEndMinutes: (booking: Booking) => number | null;
   /**
    * Active (non-past, non-cancelled) bookings.
    * These are the items shown in the Active tab.
@@ -129,6 +136,7 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
     bookings: [],
     completedIds: new Set<string>(),
     cancelledIds: new Set<string>(),
+    extensionMins: {},
   });
 
   const addBooking = useCallback((booking: Omit<Booking, 'id'>) => {
@@ -146,13 +154,38 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'MARK_COMPLETED', id: bookingId });
   }, []);
 
-  /** A booking is "past" when completed or its slot has expired. */
-  const isPast = useCallback(
-    (b: Booking) => state.completedIds.has(b.id) || isSlotExpired(b),
-    [state.completedIds]
+  const extendBooking = useCallback((bookingId: string, addMinutes: number) => {
+    dispatch({ type: 'EXTEND_BOOKING', id: bookingId, addMinutes });
+  }, []);
+
+  /**
+   * Effective end time = slot end + any accumulated extension minutes.
+   * Used by the Extend screen to compute countdown and clash windows.
+   */
+  const getBookingEndMinutes = useCallback(
+    (booking: Booking): number | null => {
+      const slot = ALL_LIBRARY_SLOTS.find((s) => s.id === booking.slotId);
+      if (!slot) return null;
+      const base = slot.endHour * 60 + slot.endMin;
+      const extra = state.extensionMins[booking.id] ?? 0;
+      return base + extra;
+    },
+    [state.extensionMins]
   );
 
-  /** A booking is visible in the Active tab when it is not cancelled and not past. */
+  /** A booking is "past" when completed or its EFFECTIVE end time has passed. */
+  const isPast = useCallback(
+    (b: Booking) => {
+      if (state.completedIds.has(b.id)) return true;
+      if (b.dateOption === 'tomorrow') return false;
+      const endMins = getBookingEndMinutes(b);
+      if (endMins === null) return false;
+      const now = new Date();
+      return now.getHours() * 60 + now.getMinutes() >= endMins;
+    },
+    [state.completedIds, getBookingEndMinutes]
+  );
+
   const isActive = useCallback(
     (b: Booking) => !state.cancelledIds.has(b.id) && !isPast(b),
     [state.cancelledIds, isPast]
@@ -182,7 +215,6 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
     [state.bookings, isActive]
   );
 
-  // Cancelled bookings are silently dropped — they do NOT appear in history.
   const getPastBookings = useCallback(
     () => state.bookings.filter((b) => !state.cancelledIds.has(b.id) && isPast(b)),
     [state.bookings, state.cancelledIds, isPast]
@@ -194,6 +226,8 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
       addBooking,
       cancelBooking,
       markCompleted,
+      extendBooking,
+      getBookingEndMinutes,
       getActiveBookings,
       getOccupiedCount,
       isSeatTaken,
@@ -204,6 +238,8 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
       addBooking,
       cancelBooking,
       markCompleted,
+      extendBooking,
+      getBookingEndMinutes,
       getActiveBookings,
       getOccupiedCount,
       isSeatTaken,
