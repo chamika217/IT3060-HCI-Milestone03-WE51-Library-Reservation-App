@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SeatBottomNav, TabName } from '../components/SeatBottomNav';
 import { Colors, Shadows } from '../constants/designSystem';
+import { useBookingStore } from '../store/bookingStore';
 
 // ─────────────────────────────────────────────
 // Types
@@ -37,6 +38,8 @@ export default function EarlySeatReleaseScreen() {
   const seatNumber = params.seatNumber ?? 'B-14';
   const roomName = params.roomName ?? 'Level 1 Individual Study Area';
   const timeRange = params.timeRange ?? '10:30 AM - 12:30 PM';
+
+  const { bookings, markCompleted } = useBookingStore();
 
   const [checklist, setChecklist] = useState<ChecklistItem[]>([
     { id: 1, label: 'Cleaned desk surface of personal items', checked: true },
@@ -63,6 +66,12 @@ export default function EarlySeatReleaseScreen() {
           text: 'Yes, Vacate',
           style: 'destructive',
           onPress: () => {
+            // Mark the matching booking as completed so it moves to Past History
+            const match = bookings.find(
+              (b) => b.seatNumber === seatNumber || b.seatNumber === seatNumber.replace(/^Seat\s*/i, '')
+            );
+            if (match) markCompleted(match.id);
+
             Alert.alert(
               'Seat Released ✅',
               `Seat ${seatNumber} has been released. Thank you for freeing up the space!`,

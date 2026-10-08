@@ -17,8 +17,9 @@ import { ReadingRoomsHeader } from '../components/ReadingRoomsHeader';
 import { ReservationCard } from '../components/ReservationCard';
 import { SeatBottomNav, TabName } from '../components/SeatBottomNav';
 import { Colors, Shadows } from '../constants/designSystem';
-import { MOCK_ACTIVE_RESERVATION } from '../mock/roomsData';
-import { ReservationItem } from '../types/seatBooking';
+import { ALL_LIBRARY_SLOTS, MOCK_ACTIVE_RESERVATION } from '../mock/roomsData';
+import { useBookingStore } from '../store/bookingStore';
+import { Booking, ReservationItem } from '../types/seatBooking';
 
 const BACKEND_CANCEL_URL = 'http://localhost:5000/api/reservations';
 
@@ -30,14 +31,18 @@ export default function MyBookingsScreen() {
     roomName?: string;
   }>();
 
+  const { getPastBookings } = useBookingStore();
+
   const [activeTabSegment, setActiveTabSegment] = useState<'active' | 'past'>('active');
   const [bottomTab, setBottomTab] = useState<TabName>('Bookings');
   const [qrModalVisible, setQrModalVisible] = useState<boolean>(false);
 
-  // Compute active reservation from route params or fallback to initial mock reservation
+  // Compute active reservation from route params or fall back to mock
   const activeReservation: ReservationItem = useMemo(() => {
     if (params.seatNumber) {
-      const cleanNum = params.seatNumber.startsWith('Seat') ? params.seatNumber : `Seat ${params.seatNumber}`;
+      const cleanNum = params.seatNumber.startsWith('Seat')
+        ? params.seatNumber
+        : `Seat ${params.seatNumber}`;
       return {
         _id: `res-${params.seatNumber}`,
         seatNumber: cleanNum,
@@ -58,14 +63,32 @@ export default function MyBookingsScreen() {
   }, [params.seatNumber, params.timeRange, params.dateOption, params.roomName]);
 
   const [userCancelledId, setUserCancelledId] = useState<string | null>(null);
-  const [selectedPassReservation, setSelectedPassReservation] = useState<ReservationItem | null>(null);
+  const [selectedPassReservation, setSelectedPassReservation] =
+    useState<ReservationItem | null>(null);
 
   const reservations = useMemo(() => {
-    if (userCancelledId === activeReservation._id) {
-      return [];
-    }
+    if (userCancelledId === activeReservation._id) return [];
     return [activeReservation];
   }, [activeReservation, userCancelledId]);
+
+  // ── Past history from the booking store ──────────────────────────────────
+  const pastBookings: Booking[] = useMemo(
+    () => getPastBookings(),
+    // Re-derive on every render so expired slots appear automatically
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [getPastBookings, activeTabSegment]
+  );
+
+  /** Resolve the human-readable end time for a past booking. */
+  const slotEndLabel = (slotId: string): string => {
+    const slot = ALL_LIBRARY_SLOTS.find((s) => s.id === slotId);
+    return slot?.timeRange ?? '—';
+  };
+
+  /** Map dateOption to a short display label. */
+  const dateBadge = (dateOption: string): string =>
+    dateOption === 'tomorrow' ? 'Tomorrow' : 'Today';
+
 
   const handleChangeSeat = (reservation: ReservationItem) => {
     Alert.alert(
@@ -198,7 +221,7 @@ export default function MyBookingsScreen() {
                   : styles.segmentTextInactive,
               ]}
             >
-              Past History (4)
+            Past History ({pastBookings.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -240,21 +263,59 @@ export default function MyBookingsScreen() {
               </Text>
             </View>
           )
+        ) : pastBookings.length === 0 ? (
+          /* ── Empty state ── */
+          <View style={styles.emptyCard}>
+            <Ionicons name="time-outline" size={32} color={Colors.textSecondary} />
+            <Text style={styles.emptyTitle}>No Past Bookings Yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Your completed and expired reservations will appear here automatically.
+            </Text>
+          </View>
         ) : (
+          /* ── Dynamic past history list ── */
           <View style={styles.pastContainer}>
-            <Text style={styles.pastTitle}>Past Booking History</Text>
-            <View style={styles.pastRow}>
-              <Text style={styles.pastSeat}>Seat A-04 (Oct 20, 09:00 - 11:00)</Text>
-              <Text style={styles.completedTag}>COMPLETED</Text>
+            <View style={styles.pastHeaderRow}>
+              <Text style={styles.pastTitle}>Past Booking History</Text>
+              <Text style={styles.pastCount}>{pastBookings.length} record{pastBookings.length !== 1 ? 's' : ''}</Text>
             </View>
-            <View style={styles.pastRow}>
-              <Text style={styles.pastSeat}>Seat B-12 (Oct 18, 13:00 - 15:00)</Text>
-              <Text style={styles.completedTag}>COMPLETED</Text>
-            </View>
-            <View style={styles.pastRow}>
-              <Text style={styles.pastSeat}>Seat A-02 (Oct 14, 10:00 - 12:00)</Text>
-              <Text style={styles.completedTag}>COMPLETED</Text>
-            </View>
+
+            {pastBookings.map((booking, idx) => {
+              const isLast = idx === pastBookings.length - 1;
+              const isCompleted = booking.dateOption === 'today';
+              return (
+                <View
+                  key={booking.id}
+                  style={[styles.pastRow, isLast && styles.pastRowLast]}
+                >
+                  {/* Left: icon + text */}
+                  <View style={styles.pastRowLeft}>
+                    <View style={styles.pastIconBox}>
+                      <Ionicons name="desktop-outline" size={14} color={Colors.textSecondary} />
+                    </View>
+                    <View>
+                      <Text style={styles.pastSeat}>Seat {booking.seatNumber}</Text>
+                      <Text style={styles.pastMeta}>
+                        {dateBadge(booking.dateOption)} • {slotEndLabel(booking.slotId)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Right: status tag */}
+                  <View style={[
+                    styles.statusTagBase,
+                    isCompleted ? styles.statusTagCompleted : styles.statusTagOngoing,
+                  ]}>
+                    <Text style={[
+                      styles.statusTagText,
+                      isCompleted ? styles.statusTagTextCompleted : styles.statusTagTextOngoing,
+                    ]}>
+                      {isCompleted ? 'COMPLETED' : 'ONGOING'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -445,35 +506,82 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: 10,
+    gap: 0,
+  },
+  pastHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   pastTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: Colors.textDark,
-    marginBottom: 4,
+  },
+  pastCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   pastRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F3F6',
   },
-  pastSeat: {
-    fontSize: 12,
-    color: Colors.textDark,
-    fontWeight: '600',
+  pastRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
   },
-  completedTag: {
+  pastRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  pastIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: Colors.neutralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pastSeat: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textDark,
+  },
+  pastMeta: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  statusTagBase: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    flexShrink: 0,
+  },
+  statusTagCompleted: {
+    backgroundColor: Colors.successSoft,
+  },
+  statusTagOngoing: {
+    backgroundColor: Colors.primarySoft,
+  },
+  statusTagText: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.textSecondary,
-    backgroundColor: '#F0F4F8',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    letterSpacing: 0.3,
+  },
+  statusTagTextCompleted: {
+    color: Colors.success,
+  },
+  statusTagTextOngoing: {
+    color: Colors.primary,
   },
   policyCard: {
     marginHorizontal: 20,
