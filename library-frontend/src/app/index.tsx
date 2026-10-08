@@ -1,3 +1,7 @@
+import ReadingRoomsScreen from '@/seat-booking/screens/ReadingRoomsScreen';
+
+export default function HomeScreen() {
+  return <ReadingRoomsScreen />;
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Button, u } from '@/components/library/ui';
