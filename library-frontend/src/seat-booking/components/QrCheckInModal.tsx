@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import QRCode from 'react-native-qrcode-svg';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -15,9 +16,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CampusBreadcrumb } from './CampusBreadcrumb';
 import { ReadingRoomsHeader } from './ReadingRoomsHeader';
 import { Colors, Shadows } from '../constants/designSystem';
+import { ALL_LIBRARY_SLOTS, MOCK_ROOMS } from '../mock/roomsData';
+import { useBookingStore } from '../store/bookingStore';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Props
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface QrCheckInModalProps {
   visible: boolean;
+  /** Seat identifier, e.g. "B-14" or "Seat B-14". */
   seatNumber?: string;
   roomName?: string;
   timeRange?: string;
@@ -28,19 +36,142 @@ interface QrCheckInModalProps {
   onClose: () => void;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Derive a stable 4-digit PIN from a booking ID string.
+ * Uses a simple djb2-style hash so the same booking always produces the same PIN.
+ */
+function derivePinFromId(bookingId: string): string {
+  let hash = 5381;
+  for (let i = 0; i < bookingId.length; i++) {
+    hash = (hash * 33) ^ bookingId.charCodeAt(i);
+    hash = hash >>> 0; // keep unsigned 32-bit
+  }
+  const pin = (hash % 9000) + 1000; // range 1000-9999
+  return String(pin);
+}
+
+/**
+ * Build the scannable QR payload as a compact JSON string.
+ * Standard QR readers will display this as readable text on any smartphone.
+ */
+function buildQrPayload(params: {
+  bookingId: string;
+  seatNumber: string;
+  roomName: string;
+  roomCode: string;
+  date: string;
+  timeRange: string;
+  pin: string;
+}): string {
+  return JSON.stringify({
+    system: 'SLIIT-LIBRARY',
+    bookingId: params.bookingId,
+    seat: params.seatNumber,
+    room: params.roomName,
+    roomCode: params.roomCode,
+    date: params.date,
+    slot: params.timeRange,
+    pin: params.pin,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
   visible,
-  seatNumber = 'B-17',
-  roomName = 'Individual Study Area',
-  timeRange = '02:30 PM – 04:30 PM',
-  passCode = '9982',
-  token = `KSN-${seatNumber}-9982`,
-  pin = '8492',
+  seatNumber: propSeat,
+  roomName: propRoomName,
+  timeRange: propTimeRange,
+  dateLabel: propDateLabel,
   onClose,
 }) => {
-  const [pinCopied, setPinCopied] = useState(false);
   const router = useRouter();
+  const [pinCopied, setPinCopied] = useState(false);
 
+  const { getActiveBookings } = useBookingStore();
+
+  // ── Resolve booking data ──────────────────────────────────────────────────
+  // Prefer live booking from the store; fall back to props for cases where
+  // the modal is opened with static data (e.g. past bookings preview).
+  const resolvedData = useMemo(() => {
+    const activeBookings = getActiveBookings();
+
+    // Try to find the booking that matches the prop seat number
+    const cleanPropSeat = (propSeat ?? '').replace(/^Seat\s*/i, '');
+    const match =
+      activeBookings.find(
+        (b) =>
+          b.seatNumber === cleanPropSeat ||
+          b.seatNumber === `Seat ${cleanPropSeat}` ||
+          b.seatNumber === propSeat
+      ) ?? activeBookings[0]; // fall back to first active booking
+
+    if (match) {
+      const room = MOCK_ROOMS.find((r) => r.code === match.roomCode);
+      const slot = ALL_LIBRARY_SLOTS.find((s) => s.id === match.slotId);
+      const seatNum = match.seatNumber.replace(/^Seat\s*/i, '');
+      const pin = derivePinFromId(match.id);
+      const date = match.dateOption === 'tomorrow' ? 'Tomorrow' : 'Today';
+      const timeRange = slot?.timeRange ?? match.timeRange;
+      const roomName = room?.name ?? propRoomName ?? 'Study Area';
+      const roomCode = match.roomCode;
+      const token = `KSN-${seatNum}-${match.id.slice(-6).toUpperCase()}`;
+
+      return {
+        bookingId: match.id,
+        seatNumber: seatNum,
+        roomName,
+        roomCode,
+        date,
+        timeRange,
+        pin,
+        token,
+        fromStore: true,
+      };
+    }
+
+    // No live booking — use props as-is (graceful fallback)
+    const fallbackSeat = (propSeat ?? 'B-17').replace(/^Seat\s*/i, '');
+    const fallbackPin = '0000';
+    return {
+      bookingId: 'DEMO',
+      seatNumber: fallbackSeat,
+      roomName: propRoomName ?? 'Individual Study Area',
+      roomCode: 'L2-NORTH',
+      date: propDateLabel ?? 'Today',
+      timeRange: propTimeRange ?? '02:30 PM – 04:30 PM',
+      pin: fallbackPin,
+      token: `KSN-${fallbackSeat}-DEMO`,
+      fromStore: false,
+    };
+  }, [getActiveBookings, propSeat, propRoomName, propTimeRange, propDateLabel]);
+
+  const {
+    bookingId,
+    seatNumber,
+    roomName,
+    roomCode,
+    date,
+    timeRange,
+    pin,
+    token,
+  } = resolvedData;
+
+  // ── QR payload (changes whenever booking data changes) ────────────────────
+  const qrPayload = useMemo(
+    () => buildQrPayload({ bookingId, seatNumber, roomName, roomCode, date, timeRange, pin }),
+    [bookingId, seatNumber, roomName, roomCode, date, timeRange, pin]
+  );
+
+  const cleanSeatLabel = `Seat ${seatNumber}`;
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleCopyPin = () => {
     setPinCopied(true);
     Alert.alert('PIN Copied!', `Check-In PIN ${pin} copied to clipboard.`);
@@ -50,14 +181,14 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
   const handleTurnstileScan = () => {
     Alert.alert(
       'Turnstile Check-In Verified! ✅',
-      `Welcome to ${roomName}! Turnstile Gate #L2-N unlocked for Seat ${seatNumber}.`
+      `Welcome to ${roomName}!\nTurnstile Gate #L2-N unlocked for ${cleanSeatLabel}.`
     );
   };
 
   const handleReleaseExtend = () => {
     Alert.alert(
       'Seat Management',
-      `Seat ${seatNumber} is active until ${timeRange.split('–')[1] || 'end of slot'}.`,
+      `${cleanSeatLabel} is active until ${timeRange.split('–')[1]?.trim() ?? 'end of slot'}.`,
       [
         {
           text: 'Extend Seat',
@@ -85,19 +216,16 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
     );
   };
 
-  const cleanSeatLabel = seatNumber.startsWith('Seat') ? seatNumber : `Seat ${seatNumber}`;
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        {/* Top Header */}
         <ReadingRoomsHeader
           onNotificationPress={() => Alert.alert('Notifications', 'No new alerts.')}
           onProfilePress={() => Alert.alert('Profile', 'Student Account #2026-IT')}
         />
 
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* Breadcrumb Header */}
           <CampusBreadcrumb
             campusName="VERIFICATION"
             spacesCount="SCREEN 05"
@@ -106,21 +234,20 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
             onBackPress={onClose}
           />
 
-          {/* Top Verified Status Card (Name & Faculty Removed as requested) */}
+          {/* Verified status bar */}
           <View style={styles.verifiedCard}>
             <View style={styles.verifiedLeft}>
               <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
               <Text style={styles.verifiedText}>CAMPUS PASS VERIFIED</Text>
             </View>
-
             <View style={styles.activePill}>
               <Text style={styles.activePillText}>Active</Text>
             </View>
           </View>
 
-          {/* QR Code Container Card */}
+          {/* QR Code card */}
           <View style={styles.qrCard}>
-            {/* Ready to Scan Pill */}
+            {/* Ready to Scan pill */}
             <View style={styles.scanPillContainer}>
               <View style={styles.readyPill}>
                 <View style={styles.greenDot} />
@@ -128,63 +255,44 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
               </View>
             </View>
 
-            {/* QR Code Graphic Display */}
-            <View style={styles.qrGraphicFrame}>
-              {/* Blue Corner Brackets */}
+            {/* ── Real scannable QR code ── */}
+            <View style={styles.qrFrame}>
+              {/* Corner brackets — decorative, on top of the QR */}
               <View style={[styles.cornerBracket, styles.topLeftBracket]} />
               <View style={[styles.cornerBracket, styles.topRightBracket]} />
               <View style={[styles.cornerBracket, styles.bottomLeftBracket]} />
               <View style={[styles.cornerBracket, styles.bottomRightBracket]} />
 
-              {/* QR Pattern Representation */}
-              <View style={styles.qrGridContainer}>
-                {/* 3 Large Corner Position Markers */}
-                <View style={[styles.qrMarker, { top: 12, left: 12 }]} />
-                <View style={[styles.qrMarker, { top: 12, right: 12 }]} />
-                <View style={[styles.qrMarker, { bottom: 12, left: 12 }]} />
-
-                {/* Simulated QR Code Data Blocks */}
-                <View style={styles.qrDataBlockRow}>
-                  <View style={[styles.qrPixel, { width: 14, height: 14 }]} />
-                  <View style={[styles.qrPixel, { width: 8, height: 8 }]} />
-                  <View style={[styles.qrPixel, { width: 18, height: 10 }]} />
-                </View>
-                <View style={styles.qrDataBlockRow}>
-                  <View style={[styles.qrPixel, { width: 22, height: 12 }]} />
-                  <View style={[styles.qrPixel, { width: 12, height: 14 }]} />
-                  <View style={[styles.qrPixel, { width: 10, height: 10 }]} />
-                </View>
-                <View style={styles.qrDataBlockRow}>
-                  <View style={[styles.qrPixel, { width: 10, height: 14 }]} />
-                  <View style={[styles.qrPixel, { width: 20, height: 8 }]} />
-                  <View style={[styles.qrPixel, { width: 14, height: 14 }]} />
-                </View>
-
-                {/* Horizontal Laser Scanning Line */}
-                <View style={styles.qrLaserLine} />
+              <View style={styles.qrInner}>
+                <QRCode
+                  value={qrPayload}
+                  size={160}
+                  color={Colors.textDark}
+                  backgroundColor="#FFFFFF"
+                  quietZone={6}
+                />
               </View>
             </View>
 
-            {/* Token Label */}
+            {/* Token label */}
             <Text style={styles.tokenText}>
               TOKEN: <Text style={styles.tokenBoldText}>{token}</Text>
             </Text>
 
-            {/* Divider */}
+            {/* OR ENTER PIN divider */}
             <View style={styles.orDividerRow}>
               <View style={styles.dividerLine} />
               <Text style={styles.orDividerText}>OR ENTER PIN</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* 4 PIN Digit Boxes */}
+            {/* 4-digit PIN boxes */}
             <View style={styles.pinBoxesRow}>
-              {pin.split('').slice(0, 4).map((digit, idx) => (
+              {pin.slice(0, 4).split('').map((digit, idx) => (
                 <View key={idx} style={styles.pinBox}>
                   <Text style={styles.pinDigitText}>{digit}</Text>
                 </View>
               ))}
-
               <TouchableOpacity
                 style={styles.copyPinBox}
                 onPress={handleCopyPin}
@@ -199,7 +307,7 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
             </View>
           </View>
 
-          {/* Allocated Station Card */}
+          {/* Allocated station card */}
           <View style={styles.allocatedCard}>
             <View style={styles.allocatedTopRow}>
               <View>
@@ -222,13 +330,13 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
             <View style={styles.graceRow}>
               <View style={styles.graceLeft}>
                 <Ionicons name="hourglass-outline" size={14} color={Colors.warning} />
-                <Text style={styles.graceLabel}>Check-in grace period:</Text>
+                <Text style={styles.graceLabel}>Date:</Text>
               </View>
-              <Text style={styles.graceTimerText}>11:38</Text>
+              <Text style={styles.graceTimerText}>{date}</Text>
             </View>
           </View>
 
-          {/* Action Buttons */}
+          {/* Action buttons */}
           <View style={styles.actionsContainer}>
             <TouchableOpacity
               style={styles.scanButton}
@@ -245,7 +353,7 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
               activeOpacity={0.8}
             >
               <Ionicons name="headset-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.releaseButtonText}>Seat Releases and extends</Text>
+              <Text style={styles.releaseButtonText}>Seat Releases and Extends</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -254,6 +362,9 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -262,6 +373,7 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
   },
+  // Verified bar
   verifiedCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -298,6 +410,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.success,
   },
+  // QR card
   qrCard: {
     marginHorizontal: 20,
     marginBottom: 16,
@@ -332,13 +445,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.success,
   },
-  qrGraphicFrame: {
+  // QR frame with decorative corner brackets
+  qrFrame: {
     width: 210,
     height: 210,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#FAFBFB',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -346,75 +460,45 @@ const styles = StyleSheet.create({
   },
   cornerBracket: {
     position: 'absolute',
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderColor: Colors.primary,
+    zIndex: 1,
   },
   topLeftBracket: {
-    top: 10,
-    left: 10,
+    top: 8,
+    left: 8,
     borderTopWidth: 3,
     borderLeftWidth: 3,
     borderTopLeftRadius: 4,
   },
   topRightBracket: {
-    top: 10,
-    right: 10,
+    top: 8,
+    right: 8,
     borderTopWidth: 3,
     borderRightWidth: 3,
     borderTopRightRadius: 4,
   },
   bottomLeftBracket: {
-    bottom: 10,
-    left: 10,
+    bottom: 8,
+    left: 8,
     borderBottomWidth: 3,
     borderLeftWidth: 3,
     borderBottomLeftRadius: 4,
   },
   bottomRightBracket: {
-    bottom: 10,
-    right: 10,
+    bottom: 8,
+    right: 8,
     borderBottomWidth: 3,
     borderRightWidth: 3,
     borderBottomRightRadius: 4,
   },
-  qrGridContainer: {
-    width: 170,
-    height: 170,
+  qrInner: {
+    padding: 8,
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: '#EEF2F6',
+    borderRadius: 8,
   },
-  qrMarker: {
-    position: 'absolute',
-    width: 38,
-    height: 38,
-    borderWidth: 7,
-    borderColor: '#1C283B',
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-  },
-  qrDataBlockRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginVertical: 4,
-  },
-  qrPixel: {
-    backgroundColor: '#1C283B',
-    borderRadius: 2,
-  },
-  qrLaserLine: {
-    position: 'absolute',
-    width: '100%',
-    height: 2,
-    backgroundColor: Colors.primary,
-    ...Shadows.soft,
-  },
+  // Token & PIN
   tokenText: {
     fontSize: 11,
     fontWeight: '700',
@@ -473,6 +557,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Allocated station card
   allocatedCard: {
     marginHorizontal: 20,
     marginBottom: 16,
@@ -549,6 +634,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.textDark,
   },
+  // Action buttons
   actionsContainer: {
     marginHorizontal: 20,
     marginBottom: 24,
