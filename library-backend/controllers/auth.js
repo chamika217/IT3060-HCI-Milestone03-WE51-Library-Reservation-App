@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Session = require('../models/Session');
 const { createSession, publicUser } = require('../services/session');
 const { verifyGoogleIdToken } = require('../services/googleIdentity');
+const { validRegistrationEmail, emailMessage } = require('../services/registrationEmail');
 const clean = value => typeof value === 'string' ? value.trim() : '';
 const credentials = body => {
   const email = clean(body?.email).toLowerCase(), password = body?.password;
@@ -11,6 +12,7 @@ const credentials = body => {
   return { email, password };
 };
 exports.register = async (req, res) => {
+  if (!validRegistrationEmail(req.body?.email)) return res.status(400).json({ message: emailMessage });
   const data = credentials(req.body);
   const name = clean(req.body?.name), studentId = clean(req.body?.studentId).toUpperCase(), department = clean(req.body?.department);
   if (!data || data.password.length < 8 || !/[a-z]/.test(data.password) || !/[A-Z]/.test(data.password) || !name || name.length > 120 || !studentId || studentId.length > 50 || !department || department.length > 120 || req.body?.acceptedTerms !== true) return res.status(400).json({ message: 'Password must be at least 8 characters and include an uppercase and a lowercase letter. Complete all required fields and accept the borrowing terms.' });
@@ -86,6 +88,7 @@ exports.googleRegister = async (req, res) => {
   try { existing = await findOrLinkGoogleUser(profile); }
   catch (error) { return sendGoogleError(res, error); }
   if (existing) return res.json(await createSession(existing));
+  if (!validRegistrationEmail(profile.email)) return res.status(400).json({ message: emailMessage });
   const passwordHash = await bcrypt.hash(randomBytes(32).toString('base64url'), 12);
   try {
     const user = await User.create({ name: profile.name || profile.email.split('@')[0], email: profile.email, googleSub: profile.googleSub, studentId, department, passwordHash });

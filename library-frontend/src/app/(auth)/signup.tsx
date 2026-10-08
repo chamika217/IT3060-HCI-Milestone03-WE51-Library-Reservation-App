@@ -10,6 +10,9 @@ export default function Signup() {
   const [name, setName] = useState(''), [student, setStudent] = useState(''), [email, setEmail] = useState(''), [password, setPassword] = useState(''), [department, setDepartment] = useState(''), [accepted, setAccepted] = useState(false), [error, setError] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const normalizedEmail = (pendingGoogle?.email || email).trim().toLowerCase();
+  const emailError = normalizedEmail.length <= 254 && /^[^\s@]+@(my\.sliit\.lk|gmail\.com)$/.test(normalizedEmail)
+    ? '' : 'Use a valid email ending in @my.sliit.lk or @gmail.com.';
   const passwordError = password.length === 0
     ? 'Enter a password.'
     : password.length < 8
@@ -23,13 +26,17 @@ export default function Signup() {
   async function submit() {
     if (busy) return;
     setSubmitted(true);
+    if (emailError) {
+      setError(pendingGoogle ? emailError : '');
+      return;
+    }
     if (!pendingGoogle && (passwordError || confirmationError)) {
       setError('');
       return;
     }
     const completeProfile = student.trim() && department.trim() && accepted;
     const validPassword = password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password);
-    const completePasswordSignup = name.trim() && email.includes('@') && validPassword;
+    const completePasswordSignup = name.trim() && !emailError && validPassword;
     if (!completeProfile || (!pendingGoogle && !completePasswordSignup)) {
       setError(pendingGoogle
         ? 'Enter your student or staff ID and department, then accept the borrowing terms.'
@@ -39,7 +46,7 @@ export default function Signup() {
     setBusy(true); setError('');
     try {
       if (pendingGoogle) await completeGoogleRegistration({ credential: pendingGoogle.credential, studentId: student, department, acceptedTerms: accepted });
-      else await register({ name, studentId: student, department, email, password, acceptedTerms: accepted });
+      else await register({ name, studentId: student, department, email: normalizedEmail, password, acceptedTerms: accepted });
       setPassword(''); setConfirmPassword(''); router.replace('/home');
     } catch (e) { setError(e instanceof Error ? e.message : 'Registration failed.'); }
     finally { setBusy(false); }
@@ -62,7 +69,10 @@ export default function Signup() {
         </View>
         {!pendingGoogle && <Field label="FULL NAME" placeholder="Alex Morgan" value={name} onChangeText={setName} autoComplete="name" style={{ backgroundColor: c.primarySoft }} />}
         <Field label="STUDENT / STAFF ID" placeholder="IT20240001" value={student} onChangeText={setStudent} style={{ backgroundColor: c.primarySoft }} />
-        {!pendingGoogle && <Field label="UNIVERSITY EMAIL" placeholder="you@university.edu" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" style={{ backgroundColor: c.primarySoft }} />}
+        {!pendingGoogle && <>
+          <Field label="EMAIL ADDRESS" placeholder="you@my.sliit.lk or you@gmail.com" value={email} onChangeText={value => { setEmail(value); setError(''); }} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" style={{ backgroundColor: c.primarySoft }} />
+          {!!emailError && (submitted || email.length > 0) && <Message error>{emailError}</Message>}
+        </>}
         <Field label="DEPARTMENT / FACULTY" placeholder="School of Computing" value={department} onChangeText={setDepartment} style={{ backgroundColor: c.primarySoft }} />
         {!pendingGoogle && <>
           <Field label="PASSWORD" placeholder="Enter a password" value={password} onChangeText={value => { setPassword(value); setError(''); }} secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete="new-password" style={{ backgroundColor: c.primarySoft }} />
