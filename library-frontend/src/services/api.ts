@@ -276,3 +276,76 @@ export async function getContactMessages(
 ): Promise<ApiContactMessage[]> {
   return request<ApiContactMessage[]>(`/contact/${userId}`);
 }
+
+import {
+  ApiFaqFeedback,
+  FaqFeedbackPayload,
+} from '@/features/notifications/types';
+
+// ─── Notifications — new CRUD operations ─────────────────────────────────────
+
+/**
+ * PUT /api/notifications/:id/unread
+ * Sets isRead back to false.
+ */
+export async function markNotificationUnread(
+  id: string,
+): Promise<{ message: string; notification: Notification }> {
+  return request(`/notifications/${id}/unread`, { method: 'PUT' });
+}
+
+/**
+ * DELETE /api/notifications/:id
+ * Permanently removes a notification.
+ */
+export async function deleteNotification(
+  id: string,
+): Promise<{ message: string }> {
+  return request(`/notifications/${id}`, { method: 'DELETE' });
+}
+
+// ─── FAQ Feedback ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/faq
+ * Submits (or updates) a helpful/not-helpful rating for one FAQ.
+ */
+export async function submitFaqFeedback(
+  faqId: string,
+  helpful: boolean,
+): Promise<{ message: string; feedback: ApiFaqFeedback }> {
+  const payload: FaqFeedbackPayload = { faqId, helpful };
+  return request('/faq', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+/**
+ * GET /api/faq/:userId
+ * Returns all feedback entries for the user so rated FAQs can be pre-populated.
+ */
+export async function getFaqFeedback(
+  userId: string,
+): Promise<ApiFaqFeedback[]> {
+  return request<ApiFaqFeedback[]>(`/faq/${userId}`);
+}
+
+/**
+ * DELETE /api/faq/:id
+ * Removes a feedback entry so the user can undo their rating.
+ */
+export async function deleteFaqFeedback(
+  id: string,
+): Promise<{ message: string }> {
+  return request(`/faq/${id}`, { method: 'DELETE' });
+}
+
+// ─── Contact — new CRUD operation ────────────────────────────────────────────
+
+/**
+ * DELETE /api/contact/:id
+ * Removes one of the user's own past contact messages.
+ */
+export async function deleteContactMessage(
+  id: string,
+): Promise<{ message: string }> {
+  return request(`/contact/${id}`, { method: 'DELETE' });
+}

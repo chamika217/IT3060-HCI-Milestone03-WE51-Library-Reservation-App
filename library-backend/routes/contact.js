@@ -56,4 +56,28 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
+// ── DELETE /api/contact/:id ───────────────────────────────────────────────────
+// Only the owner may delete their own message.
+router.delete('/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid message id.' });
+    }
+
+    const msg = await ContactMessage.findById(req.params.id);
+    if (!msg) return res.status(404).json({ message: 'Message not found.' });
+
+    // Ownership check — req.userId is set by the auth middleware
+    if (msg.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorised to delete this message.' });
+    }
+
+    await msg.deleteOne();
+    return res.json({ message: 'Message deleted.' });
+  } catch (err) {
+    console.error('DELETE /contact/:id', err);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+});
+
 module.exports = router;

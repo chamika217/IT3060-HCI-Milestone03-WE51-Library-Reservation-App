@@ -2,10 +2,11 @@
  * Screen 1 — Notifications List  (+ empty state)
  * Route: /(tabs)/notifications/
  *
- * Data: real API via getNotifications() — was MOCK_NOTIFICATIONS array.
+ * Data: real API via getNotifications().
+ * CRUD: Read (list), Update (mark read/unread), Delete (with undo toast)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +14,10 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  ActionSheetIOS,
+  Alert,
+  Platform,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -28,10 +33,11 @@ import { Notification } from '@/features/notifications/types';
 import {
   getNotifications,
   markNotificationRead,
+  markNotificationUnread,
   markAllNotificationsRead,
+  deleteNotification,
   getAuthUserId,
 } from '@/services/api';
-
 
 // ─── Filter tab type ──────────────────────────────────────────────────────────
 
@@ -44,6 +50,74 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: 'system', label: 'System' },
 ];
 
+// ─── Undo Toast ───────────────────────────────────────────────────────────────
+
+interface ToastState {
+  visible: boolean;
+  notificationId: string;
+  title: string;
+}
+
+function UndoToast({
+  state,
+  onUndo,
+  onDismiss,
+}: {
+  state: ToastState;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (state.visible) {
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.delay(2800),
+        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(() => onDismiss());
+    }
+  }, [state.visible, state.notificationId]);
+
+  if (!state.visible) return null;
+
+  return (
+    <Animated.View style={[toastStyles.toast, { opacity }]}>
+      <Text style={toastStyles.text} numberOfLines={1}>
+        Notification deleted
+      </Text>
+      <Pressable onPress={onUndo} style={toastStyles.undoBtn} accessibilityRole="button">
+        <Text style={toastStyles.undoText}>Undo</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+const toastStyles = StyleSheet.create({
+  toast: {
+    position: 'absolute',
+    bottom: 90,
+    left: 16,
+    right: 16,
+    backgroundColor: '#1C283B',
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  text:     { flex: 1, color: '#FAFBFB', fontSize: 13, fontWeight: '500' },
+  undoBtn:  { paddingHorizontal: 8, paddingVertical: 4 },
+  undoText: { color: '#2D7CE9', fontSize: 13, fontWeight: '700' },
+});
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function NotificationsScreen() {
@@ -53,6 +127,15 @@ export default function NotificationsScreen() {
   const [activeTab,     setActiveTab]     = useState<FilterTab>('all');
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState<string | null>(null);
+
+  // Undo toast state
+  const [toast, setToast] = useState<ToastState>({
+    visible: false, notificationId: '', title: '',
+  });
+  // Timer ref to defer the actual delete until undo window closes
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Snapshot before optimistic delete — used for rollback
+  const deletedItemRef = useRef<{ item: Notification; index: number } | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
@@ -69,9 +152,7 @@ export default function NotificationsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
 
   const unreadCount = getUnreadCount(notifications);
   const filtered    = filterByTab(notifications, activeTab);
@@ -85,9 +166,7 @@ export default function NotificationsScreen() {
 
   // ── Mark all read ──────────────────────────────────────────────────────
   async function handleMarkAllRead() {
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, status: 'read' as const })),
-    );
+    setNotifications((prev) => prev.map((n) => ({ ...n, status: 'read' as const })));
     try {
       const uid = await getAuthUserId();
       await markAllNotificationsRead(uid);
@@ -96,28 +175,122 @@ export default function NotificationsScreen() {
     }
   }
 
-  // ── Card tap — navigate + optimistically mark read ─────────────────────
+  // ── Card tap ───────────────────────────────────────────────────────────
   function handleCardPress(id: string) {
-    // Optimistic: flip to read immediately in the list
     setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, status: 'read' as const } : n,
-      ),
+      prev.map((n) => n.id === id ? { ...n, status: 'read' as const } : n),
     );
-    // Fire-and-forget — sync with server in the background
-    markNotificationRead(String(id)).catch(() => {
-      // Non-critical: if it fails the next fetch will correct state
-    });
+    markNotificationRead(String(id)).catch(() => {});
     router.push(`/(tabs)/notifications/${id}` as never);
   }
 
   function handleQuickAction(id: string) {
-    // Stub — wire to PUT /api/seats/:id/extend
     console.log('Quick action for notification', id);
   }
 
-  // ── Loading state ──────────────────────────────────────────────────────
+  // ── Delete with undo ───────────────────────────────────────────────────
+  function initiateDelete(id: string) {
+    // Find item and its index before removing
+    const idx  = notifications.findIndex((n) => n.id === id);
+    const item = notifications[idx];
+    if (!item) return;
+
+    // Cancel any previous pending delete
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      // Commit the previous pending delete immediately if there was one
+      if (deletedItemRef.current) {
+        const prevId = deletedItemRef.current.item.id;
+        deleteNotification(String(prevId)).catch(() => {});
+      }
+    }
+
+    // Snapshot for undo
+    deletedItemRef.current = { item, index: idx };
+
+    // Optimistic remove
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+    // Show toast
+    setToast({ visible: true, notificationId: id, title: item.title });
+
+    // Fire delete after 3 s unless undo is pressed
+    deleteTimerRef.current = setTimeout(async () => {
+      deleteTimerRef.current = null;
+      deletedItemRef.current = null;
+      try {
+        await deleteNotification(String(id));
+      } catch {
+        // If it fails, re-fetch to restore truth
+        fetchNotifications();
+      }
+    }, 3000);
+  }
+
+  function handleUndo() {
+    if (deleteTimerRef.current) {
+      clearTimeout(deleteTimerRef.current);
+      deleteTimerRef.current = null;
+    }
+    if (deletedItemRef.current) {
+      const { item, index } = deletedItemRef.current;
+      // Restore item at its original position
+      setNotifications((prev) => {
+        const next = [...prev];
+        next.splice(index, 0, item);
+        return next;
+      });
+      deletedItemRef.current = null;
+    }
+    setToast((t) => ({ ...t, visible: false }));
+  }
+
+  // ── Long-press action sheet ────────────────────────────────────────────
+  function handleLongPress(n: Notification) {
+    const actions = ['Delete', n.status === 'unread' ? 'Mark as read' : 'Mark as unread', 'Cancel'];
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: actions, cancelButtonIndex: 2, destructiveButtonIndex: 0 },
+        (idx) => {
+          if (idx === 0) initiateDelete(n.id);
+          if (idx === 1) handleToggleRead(n);
+        },
+      );
+    } else {
+      // Android / web — use Alert as a simple action sheet substitute
+      Alert.alert(
+        n.title,
+        'Choose an action',
+        [
+          { text: 'Delete', style: 'destructive', onPress: () => initiateDelete(n.id) },
+          {
+            text: n.status === 'unread' ? 'Mark as read' : 'Mark as unread',
+            onPress: () => handleToggleRead(n),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    }
+  }
+
+  function handleToggleRead(n: Notification) {
+    if (n.status === 'unread') {
+      setNotifications((prev) =>
+        prev.map((x) => x.id === n.id ? { ...x, status: 'read' as const } : x),
+      );
+      markNotificationRead(String(n.id)).catch(() => fetchNotifications());
+    } else {
+      setNotifications((prev) =>
+        prev.map((x) => x.id === n.id ? { ...x, status: 'unread' as const } : x),
+      );
+      markNotificationUnread(String(n.id)).catch(() => fetchNotifications());
+    }
+  }
+
+  // ── Loading ────────────────────────────────────────────────────────────
   if (loading) {
+
     return (
       <View style={styles.screen}>
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -270,6 +443,7 @@ export default function NotificationsScreen() {
               notification={n}
               onPress={() => handleCardPress(n.id)}
               onQuickAction={() => handleQuickAction(n.id)}
+              onLongPress={() => handleLongPress(n)}
             />
           ))}
         </ScrollView>
@@ -277,6 +451,13 @@ export default function NotificationsScreen() {
 
       {/* ── Bottom nav ─────────────────────────────────────────────────── */}
       <BottomNavBar activeTab="alerts" unreadCount={unreadCount} />
+
+      {/* ── Undo toast ─────────────────────────────────────────────────── */}
+      <UndoToast
+        state={toast}
+        onUndo={handleUndo}
+        onDismiss={() => setToast((t) => ({ ...t, visible: false }))}
+      />
     </View>
   );
 }

@@ -2,10 +2,10 @@
  * Screen 10 — Contact Library Staff
  * Route: /(tabs)/profile/contact
  *
- * Prefills name & studentId from the real API; sends via POST /api/contact.
+ * CRUD: Create (send message), Read (previous messages list), Delete (remove message)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -26,7 +27,8 @@ import {
   BottomNavBar,
   IonIcon,
 } from '@/components/shared';
-import { getUserProfile, sendContactMessage, getAuthUserId } from '@/services/api';
+import { getUserProfile, sendContactMessage, getContactMessages, deleteContactMessage, getAuthUserId } from '@/services/api';
+import { ApiContactMessage } from '@/features/notifications/types';
 import { CONTACT_SUBJECTS, ContactSubject } from '@/features/profile/types';
 
 
@@ -129,7 +131,7 @@ export default function ContactScreen() {
   const insets = useSafeAreaInsets();
 
   // Prefilled from API
-  const [fullName,   setFullNameDisplay] = useState('');
+  const [fullName,   setFullNameDisplay]  = useState('');
   const [studentId,  setStudentIdDisplay] = useState('');
   const [alertCount, setAlertCount]       = useState(0);
 
@@ -139,9 +141,26 @@ export default function ContactScreen() {
   const [attachment, setAttachment] = useState<string | null>(null);
   const [sending,    setSending]    = useState(false);
 
+  // Previous messages
+  const [prevMessages,     setPrevMessages]     = useState<ApiContactMessage[]>([]);
+  const [prevLoading,      setPrevLoading]      = useState(true);
+
   const remaining = MAX_MESSAGE_LENGTH - message.length;
 
-  // Load profile to prefill locked fields
+  // ── Load profile + previous messages ────────────────────────────────────
+  const fetchPreviousMessages = useCallback(async () => {
+    setPrevLoading(true);
+    try {
+      const uid = await getAuthUserId();
+      const msgs = await getContactMessages(uid);
+      setPrevMessages(msgs);
+    } catch {
+      // non-critical
+    } finally {
+      setPrevLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     getAuthUserId()
       .then((uid) => getUserProfile(uid))
@@ -150,9 +169,11 @@ export default function ContactScreen() {
         setStudentIdDisplay(p.studentId);
         setAlertCount(p.stats.alerts);
       })
-      .catch(() => {}); // non-critical — fields stay empty
-  }, []);
+      .catch(() => {});
+    fetchPreviousMessages();
+  }, [fetchPreviousMessages]);
 
+  // ── Send ─────────────────────────────────────────────────────────────────
   async function handleSend() {
     if (message.trim().length < 10) {
       Alert.alert('Message too short', 'Please write at least 10 characters.');
@@ -167,25 +188,49 @@ export default function ContactScreen() {
         message:       message.trim(),
         attachmentUrl: attachment ?? undefined,
       });
-      Alert.alert(
-        'Message Sent',
-        'A reference librarian will respond within 24 business hours.',
-        [{
-          text: 'OK',
-          onPress: () => {
-            // Clear form then go back
-            setMessage('');
-            setAttachment(null);
-            setSubject('General Inquiry');
-            router.back();
-          },
-        }],
-      );
+      setMessage('');
+      setAttachment(null);
+      setSubject('General Inquiry');
+      // Refresh previous messages so the new one appears
+      await fetchPreviousMessages();
+      Alert.alert('Message Sent', 'A reference librarian will respond within 24 business hours.');
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Could not send your message. Please try again.');
     } finally {
       setSending(false);
     }
+  }
+
+  // ── Delete previous message ───────────────────────────────────────────────
+  function handleDeleteMessage(msg: ApiContactMessage) {
+    Alert.alert(
+      'Delete Message',
+      `Delete your message about "${msg.subject}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            // Optimistic remove
+            setPrevMessages((prev) => prev.filter((m) => m._id !== msg._id));
+            try {
+              await deleteContactMessage(msg._id);
+            } catch (err) {
+              // Revert
+              setPrevMessages((prev) => [msg, ...prev]);
+              Alert.alert('Error', err instanceof Error ? err.message : 'Could not delete message.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  // ── Format date ───────────────────────────────────────────────────────────
+  function formatDate(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   return (
@@ -297,6 +342,48 @@ export default function ContactScreen() {
           <IonIcon name="send" size={16} color="#FAFBFB" />
           <Text style={styles.btnSendText}>{sending ? 'Sending…' : 'Send Message'}</Text>
         </Pressable>
+
+        {/* ── Previous Messages ─────────────────────────────────── */}
+        <View style={styles.prevSection}>
+          <Text style={styles.prevSectionLabel}>MY PREVIOUS MESSAGES</Text>
+
+          {prevLoading ? (
+            <ActivityIndicator size="small" color="#2D7CE9" style={{ marginVertical: 16 }} />
+          ) : prevMessages.length === 0 ? (
+            <View style={styles.prevEmpty}>
+              <IonIcon name="chatbubble-outline" size={28} color="#6C7886" />
+              <Text style={styles.prevEmptyText}>No messages yet</Text>
+            </View>
+          ) : (
+            <View style={styles.prevList}>
+              {prevMessages.map((msg) => (
+                <View key={msg._id} style={styles.prevCard}>
+                  <View style={styles.prevCardTop}>
+                    <Text style={styles.prevSubject} numberOfLines={1}>{msg.subject}</Text>
+                    <StatusBadge
+                      label={msg.status === 'resolved' ? 'Resolved' : 'Open'}
+                      variant={msg.status === 'resolved' ? 'success' : 'info'}
+                      size="sm"
+                    />
+                  </View>
+                  <Text style={styles.prevMessage} numberOfLines={2}>{msg.message}</Text>
+                  <View style={styles.prevCardBottom}>
+                    <Text style={styles.prevDate}>{formatDate(msg.createdAt)}</Text>
+                    <Pressable
+                      onPress={() => handleDeleteMessage(msg)}
+                      style={({ pressed }) => [styles.prevDeleteBtn, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete message"
+                      hitSlop={8}
+                    >
+                      <IonIcon name="close" size={16} color="#F04F55" />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       <BottomNavBar activeTab="profile" unreadCount={alertCount} />
@@ -370,4 +457,25 @@ const styles = StyleSheet.create({
   btnSendPressed: { opacity: 0.8 },
   btnSendText:    { color: '#FAFBFB', fontWeight: '700', fontSize: 15 },
   pressed:        { opacity: 0.75 },
+
+  // Previous messages section
+  prevSection: { gap: 10 },
+  prevSectionLabel: {
+    fontSize: 11, fontWeight: '700', color: '#6C7886', letterSpacing: 0.8, paddingHorizontal: 4,
+  },
+  prevEmpty: { alignItems: 'center', paddingVertical: 24, gap: 8 },
+  prevEmptyText: { fontSize: 13, color: '#6C7886' },
+  prevList: { gap: 10 },
+  prevCard: {
+    backgroundColor: '#FAFBFB', borderRadius: 12,
+    borderWidth: 1, borderColor: '#DDE2E6', padding: 14, gap: 6,
+    shadowColor: '#1C283B', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
+  },
+  prevCardTop:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  prevSubject:    { flex: 1, fontSize: 13, fontWeight: '700', color: '#1C283B' },
+  prevMessage:    { fontSize: 12, color: '#6C7886', lineHeight: 17 },
+  prevCardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  prevDate:       { fontSize: 11, color: '#6C7886' },
+  prevDeleteBtn:  { padding: 4 },
 });

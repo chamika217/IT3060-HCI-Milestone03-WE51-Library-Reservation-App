@@ -1,9 +1,11 @@
 /**
  * Screen 9 — Help & Support
  * Route: /(tabs)/profile/help
+ *
+ * CRUD: Create (submit feedback), Read (load existing ratings), Delete (undo rating)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,9 +24,10 @@ import {
   ScreenHeader,
   BottomNavBar,
   IonIcon,
-  StatusBadge,
 } from '@/components/shared';
-import { MOCK_PROFILE, MOCK_FAQS, FaqItem } from '@/features/profile/mockData';
+import { MOCK_FAQS, FaqItem } from '@/features/profile/mockData';
+import { ApiFaqFeedback } from '@/features/notifications/types';
+import { submitFaqFeedback, getFaqFeedback, deleteFaqFeedback, getAuthUserId } from '@/services/api';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -42,10 +45,44 @@ interface FaqAccordionProps {
   item: FaqItem;
   isOpen: boolean;
   onToggle: () => void;
+  /** Pre-existing feedback from the server, if any */
+  existingFeedback: ApiFaqFeedback | null;
+  onFeedbackChange: (updated: ApiFaqFeedback | null) => void;
 }
 
-function FaqAccordion({ item, isOpen, onToggle }: FaqAccordionProps) {
-  const [helpful, setHelpful] = useState<'yes' | 'no' | null>(null);
+function FaqAccordion({ item, isOpen, onToggle, existingFeedback, onFeedbackChange }: FaqAccordionProps) {
+  const [submitting, setSubmitting] = useState(false);
+  const [thanks,     setThanks]     = useState(false);
+
+  // Derive current vote from server state
+  const voted: 'yes' | 'no' | null = existingFeedback == null
+    ? null
+    : existingFeedback.helpful ? 'yes' : 'no';
+
+  async function handleVote(helpful: boolean) {
+    const voteKey = helpful ? 'yes' : 'no';
+    setSubmitting(true);
+    try {
+      if (voted === voteKey) {
+        // Same answer tapped again → undo (delete)
+        if (existingFeedback) {
+          await deleteFaqFeedback(existingFeedback._id);
+          onFeedbackChange(null);
+          setThanks(false);
+        }
+      } else {
+        // New or changed answer → upsert
+        const res = await submitFaqFeedback(item.id, helpful);
+        onFeedbackChange(res.feedback);
+        setThanks(true);
+        setTimeout(() => setThanks(false), 3000);
+      }
+    } catch {
+      // Fail silently — feedback is non-critical
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <View style={faqStyles.item}>
@@ -70,55 +107,39 @@ function FaqAccordion({ item, isOpen, onToggle }: FaqAccordionProps) {
           <View style={faqStyles.helpfulRow}>
             <Text style={faqStyles.helpfulLabel}>Was this helpful?</Text>
             <Pressable
-              onPress={() => setHelpful('yes')}
+              onPress={() => !submitting && handleVote(true)}
               style={({ pressed }) => [
                 faqStyles.helpfulBtn,
-                helpful === 'yes' && faqStyles.helpfulBtnActive,
+                voted === 'yes' && faqStyles.helpfulBtnActive,
                 pressed && faqStyles.helpfulBtnPressed,
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Yes, this was helpful"
+              accessibilityLabel={voted === 'yes' ? 'Undo helpful vote' : 'Yes, this was helpful'}
             >
-              <IonIcon
-                name="thumbs-up-outline"
-                size={13}
-                color={helpful === 'yes' ? '#FAFBFB' : '#25B87A'}
-              />
-              <Text
-                style={[
-                  faqStyles.helpfulBtnText,
-                  helpful === 'yes' && faqStyles.helpfulBtnTextActive,
-                  { color: helpful === 'yes' ? '#FAFBFB' : '#25B87A' },
-                ]}
-              >
+              <IonIcon name="thumbs-up-outline" size={13} color={voted === 'yes' ? '#FAFBFB' : '#25B87A'} />
+              <Text style={[faqStyles.helpfulBtnText, { color: voted === 'yes' ? '#FAFBFB' : '#25B87A' }]}>
                 Yes
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setHelpful('no')}
+              onPress={() => !submitting && handleVote(false)}
               style={({ pressed }) => [
                 faqStyles.helpfulBtn,
-                helpful === 'no' && faqStyles.helpfulBtnNo,
+                voted === 'no' && faqStyles.helpfulBtnNo,
                 pressed && faqStyles.helpfulBtnPressed,
               ]}
               accessibilityRole="button"
-              accessibilityLabel="No, this was not helpful"
+              accessibilityLabel={voted === 'no' ? 'Undo not-helpful vote' : 'No, this was not helpful'}
             >
-              <IonIcon
-                name="thumbs-down-outline"
-                size={13}
-                color={helpful === 'no' ? '#FAFBFB' : '#6C7886'}
-              />
-              <Text
-                style={[
-                  faqStyles.helpfulBtnText,
-                  { color: helpful === 'no' ? '#FAFBFB' : '#6C7886' },
-                ]}
-              >
+              <IonIcon name="thumbs-down-outline" size={13} color={voted === 'no' ? '#FAFBFB' : '#6C7886'} />
+              <Text style={[faqStyles.helpfulBtnText, { color: voted === 'no' ? '#FAFBFB' : '#6C7886' }]}>
                 No
               </Text>
             </Pressable>
           </View>
+          {thanks && (
+            <Text style={faqStyles.thanksText}>Thanks for your feedback!</Text>
+          )}
         </View>
       )}
     </View>
@@ -197,6 +218,11 @@ const faqStyles = StyleSheet.create({
   helpfulBtnTextActive: {
     color: '#FAFBFB',
   },
+  thanksText: {
+    fontSize: 12,
+    color: '#25B87A',
+    fontWeight: '600',
+  },
 });
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -207,6 +233,20 @@ export default function HelpScreen() {
   const [activeFilter, setFilter]      = useState<HelpFilter>('all');
   const [openId,       setOpenId]      = useState<string | null>(null);
   const [allExpanded,  setAllExpanded] = useState(false);
+  // Map of faqId → feedback entry (or null if not yet rated)
+  const [feedbackMap,  setFeedbackMap] = useState<Record<string, ApiFaqFeedback | null>>({});
+
+  // Load existing feedback on mount
+  useEffect(() => {
+    getAuthUserId()
+      .then((uid) => getFaqFeedback(uid))
+      .then((entries) => {
+        const map: Record<string, ApiFaqFeedback | null> = {};
+        entries.forEach((e) => { map[e.faqId] = e; });
+        setFeedbackMap(map);
+      })
+      .catch(() => {}); // non-critical
+  }, []);
 
   function toggleItem(id: string) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -310,6 +350,10 @@ export default function HelpScreen() {
                   item={faq}
                   isOpen={allExpanded || openId === faq.id}
                   onToggle={() => toggleItem(faq.id)}
+                  existingFeedback={feedbackMap[faq.id] ?? null}
+                  onFeedbackChange={(updated) =>
+                    setFeedbackMap((prev) => ({ ...prev, [faq.id]: updated }))
+                  }
                 />
                 {idx < filtered.length - 1 && (
                   <View style={styles.faqDivider} />
@@ -352,7 +396,7 @@ export default function HelpScreen() {
         </Text>
       </ScrollView>
 
-      <BottomNavBar activeTab="profile" unreadCount={MOCK_PROFILE.stats.alerts} />
+      <BottomNavBar activeTab="profile" unreadCount={0} />
     </View>
   );
 }

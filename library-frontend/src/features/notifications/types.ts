@@ -167,3 +167,20 @@ export interface ApiContactMessage {
 export interface ApiError {
   message: string;
 }
+
+// ─── FAQ Feedback types ───────────────────────────────────────────────────────
+
+/** A single FAQ feedback entry returned by GET /api/faq/:userId */
+export interface ApiFaqFeedback {
+  _id: string;
+  userId: string;
+  faqId: string;
+  helpful: boolean;
+  createdAt: string;
+}
+
+/** Body accepted by POST /api/faq */
+export interface FaqFeedbackPayload {
+  faqId: string;
+  helpful: boolean;
+}

@@ -2,6 +2,14 @@
  * Screen 3 — Allow Notifications (Permission)
  * Route: /(tabs)/notifications/permission
  *
+ * DESIGN NOTE FOR REPORT:
+ * This screen is intentionally device-level only — it requests the OS-level
+ * push notification permission via expo-notifications, which has no backend
+ * equivalent. There is no server-side CRUD operation here because permission
+ * state is stored by the operating system (iOS/Android), not in the database.
+ * The user preference (quiet hours, categories) is stored in the User model's
+ * notificationPreferences sub-document, managed via the Preferences screen.
+ *
  * Calls requestPermissionsAsync() from expo-notifications when the user
  * taps "Allow Notifications".
  *

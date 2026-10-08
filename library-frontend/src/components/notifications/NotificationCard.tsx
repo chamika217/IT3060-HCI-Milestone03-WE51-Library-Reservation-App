@@ -182,9 +182,10 @@ interface NotificationCardProps {
   notification: Notification;
   onPress: () => void;
   onQuickAction?: () => void;
+  onLongPress?: () => void;
 }
 
-export function NotificationCard({ notification, onPress, onQuickAction }: NotificationCardProps) {
+export function NotificationCard({ notification, onPress, onQuickAction, onLongPress }: NotificationCardProps) {
   const isUnread = notification.status === 'unread';
   const badge    = deriveBadge(notification);
   const iconName = TYPE_ICON[notification.type];
@@ -202,15 +203,12 @@ export function NotificationCard({ notification, onPress, onQuickAction }: Notif
 
   // ── Web: plain View + onClick — zero nested <button> elements ─────────────
   if (Platform.OS === 'web') {
-    // Cast to 'any' so TypeScript accepts the web-only onClick prop.
-    // RN-Web renders View as a <div>, so onClick is valid at runtime.
-    // No accessibilityRole="button" — that makes RN-Web emit a <button>
-    // element which would produce the nested-button error again.
-    const WebView = View as React.ComponentType<React.ComponentProps<typeof View> & { onClick?: () => void }>;
+    const WebView = View as React.ComponentType<React.ComponentProps<typeof View> & { onClick?: () => void; onContextMenu?: () => void }>;
     return (
       <WebView
         style={[styles.card, isUnread && styles.cardUnread]}
         onClick={onPress}
+        onContextMenu={onLongPress}
         accessibilityLabel={`${notification.title}. ${notification.subtitle}`}
       >
         {content}
@@ -222,6 +220,8 @@ export function NotificationCard({ notification, onPress, onQuickAction }: Notif
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
       style={({ pressed }) => [
         styles.card,
         isUnread && styles.cardUnread,

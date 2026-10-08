@@ -8,6 +8,8 @@ const authRoutes         = require('./routes/auth');
 const userRoutes         = require('./routes/users');
 const notificationRoutes = require('./routes/notifications');
 const contactRoutes      = require('./routes/contact');
+const faqRoutes          = require('./routes/faq');
+const auth               = require('./middleware/auth');
 
 const app = express();
 app.use(cors());
@@ -48,6 +50,7 @@ app.use('/api/auth',          authRoutes);
 app.use('/api/users',         userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/contact',       contactRoutes);
+app.use('/api/faq',           auth, faqRoutes);
 
 // 404 handler for unmatched routes
 app.use((req, res) => {

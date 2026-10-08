@@ -2,7 +2,7 @@
  * Screen 2 — Notification Detail
  * Route: /(tabs)/notifications/[id]
  *
- * Data: real API via getNotificationDetail(id) — was MOCK_NOTIFICATIONS lookup.
+ * CRUD: Read (detail), Update (mark unread), Delete (with confirmation)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -13,13 +13,14 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 
 import { ScreenHeader, BottomNavBar, IonIcon, StatusBadge } from '@/components/notifications';
 import { Notification } from '@/features/notifications/types';
-import { getNotificationDetail } from '@/services/api';
+import { getNotificationDetail, markNotificationUnread, deleteNotification } from '@/services/api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,40 @@ export default function NotificationDetailScreen() {
   // pass 0 — the list screen holds the authoritative count.
   const unreadCount = 0;
   const { detail } = notification;
+
+  // ── Secondary actions ────────────────────────────────────────────────────
+  async function handleMarkUnread() {
+    if (!notification) return;
+    try {
+      await markNotificationUnread(String(notification.id));
+      router.back();
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Could not update notification.');
+    }
+  }
+
+  function handleDelete() {
+    if (!notification) return;
+    Alert.alert(
+      'Delete Notification',
+      'This notification will be permanently removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteNotification(String(notification!.id));
+              router.back();
+            } catch (err) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Could not delete notification.');
+            }
+          },
+        },
+      ],
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -263,6 +298,28 @@ export default function NotificationDetailScreen() {
             </Text>
           </View>
         )}
+
+        {/* ── Secondary actions row ────────────────────────────── */}
+        <View style={styles.secondaryActions}>
+          <Pressable
+            onPress={handleMarkUnread}
+            style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Mark as unread"
+          >
+            <IonIcon name="mail-outline" size={16} color="#2D7CE9" />
+            <Text style={styles.secondaryBtnText}>Mark as unread</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleDelete}
+            style={({ pressed }) => [styles.secondaryBtn, styles.secondaryBtnDestructive, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Delete notification"
+          >
+            <IonIcon name="close" size={16} color="#F04F55" />
+            <Text style={[styles.secondaryBtnText, styles.secondaryBtnTextDestructive]}>Delete</Text>
+          </Pressable>
+        </View>
 
         {/* ── Primary CTA ─────────────────────────────────────────── */}
         <Pressable
@@ -581,6 +638,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
     letterSpacing: 0.2,
+  },
+
+  // Secondary actions row
+  secondaryActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  secondaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#B3D0F7',
+    borderRadius: 10,
+    paddingVertical: 10,
+    backgroundColor: '#EAF2FD',
+  },
+  secondaryBtnDestructive: {
+    borderColor: '#F8BBBE',
+    backgroundColor: '#FDEAEA',
+  },
+  secondaryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2D7CE9',
+  },
+  secondaryBtnTextDestructive: {
+    color: '#F04F55',
   },
 
   // Contact row

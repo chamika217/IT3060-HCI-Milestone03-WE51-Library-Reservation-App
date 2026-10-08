@@ -15,6 +15,7 @@ const mongoose = require('mongoose');
 const User            = require('./models/User');
 const Notification    = require('./models/Notification');
 const ContactMessage  = require('./models/ContactMessage');
+const FaqFeedback     = require('./models/FaqFeedback');
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
 
@@ -164,8 +165,9 @@ async function seed() {
       User.deleteMany({}),
       Notification.deleteMany({}),
       ContactMessage.deleteMany({}),
+      FaqFeedback.deleteMany({}),
     ]);
-    console.log('✓ Cleared Users, Notifications, ContactMessages');
+    console.log('✓ Cleared Users, Notifications, ContactMessages, FaqFeedback');
 
     // ── Insert user ────────────────────────────────────────────────────────
     const user = await User.create(SEED_USER);
@@ -174,6 +176,32 @@ async function seed() {
     // ── Insert notifications ───────────────────────────────────────────────
     const notifications = await Notification.insertMany(buildNotifications(user._id));
     console.log(`✓ Inserted ${notifications.length} notifications`);
+
+    // ── Insert contact messages ────────────────────────────────────────────
+    await ContactMessage.insertMany([
+      {
+        userId:  user._id,
+        subject: 'Book Reservation',
+        message: 'Hi, I reserved "Introduction to Algorithms" last week but have not received a pickup notification yet. Could you please check the status of my hold?',
+        status:  'open',
+        createdAt: new Date(Date.now() - 2 * 86400 * 1000), // 2 days ago
+      },
+      {
+        userId:  user._id,
+        subject: 'Account Issue',
+        message: 'My student ID card is not scanning at the turnstile on Level 1. I have tried multiple times over the past two days. Please help.',
+        status:  'resolved',
+        createdAt: new Date(Date.now() - 7 * 86400 * 1000), // 7 days ago
+      },
+    ]);
+    console.log('✓ Inserted 2 contact messages');
+
+    // ── Insert FAQ feedback ────────────────────────────────────────────────
+    await FaqFeedback.insertMany([
+      { userId: user._id, faqId: 'faq-1', helpful: true  },
+      { userId: user._id, faqId: 'faq-3', helpful: false },
+    ]);
+    console.log('✓ Inserted 2 FAQ feedback entries');
 
     // ── Print test values ──────────────────────────────────────────────────
     console.log('\n──────────────────────────────────────────');

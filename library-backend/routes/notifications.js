@@ -148,6 +148,27 @@ router.put('/:id/read', async (req, res) => {
   }
 });
 
+// ── PUT /api/notifications/:id/unread ────────────────────────────────────────
+router.put('/:id/unread', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid notification id.' });
+    }
+
+    const n = await Notification.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isRead: false } },
+      { new: true },
+    );
+    if (!n) return res.status(404).json({ message: 'Notification not found.' });
+
+    return res.json({ message: 'Marked as unread.', notification: toClientShape(n) });
+  } catch (err) {
+    console.error('PUT /notifications/:id/unread', err);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+});
+
 // ── PUT /api/notifications/:userId/read-all ───────────────────────────────────
 router.put('/:userId/read-all', async (req, res) => {
   try {
