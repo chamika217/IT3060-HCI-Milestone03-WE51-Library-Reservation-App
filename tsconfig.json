@@ -1,4 +1,5 @@
 {
+  "extends": "./library-frontend/tsconfig.json",
   "extends": "./library-frontend/node_modules/expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
@@ -12,9 +13,11 @@
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "library-frontend/**/*.ts",
+    "library-frontend/**/*.tsx"
+  ],
+  "exclude": [
+    "library-frontend/node_modules",
+    "library-backend/node_modules"
   ]
 }
