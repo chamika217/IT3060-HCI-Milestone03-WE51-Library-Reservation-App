@@ -15,6 +15,7 @@ exports.register = async (req, res) => {
   if (!validRegistrationEmail(req.body?.email)) return res.status(400).json({ message: emailMessage });
   const data = credentials(req.body);
   const name = clean(req.body?.name), studentId = clean(req.body?.studentId).toUpperCase(), department = clean(req.body?.department);
+  if (studentId.length !== 10) return res.status(400).json({ message: 'Student / staff ID must contain exactly 10 characters.' });
   if (!data || data.password.length < 8 || !/[a-z]/.test(data.password) || !/[A-Z]/.test(data.password) || !name || name.length > 120 || !studentId || studentId.length > 50 || !department || department.length > 120 || req.body?.acceptedTerms !== true) return res.status(400).json({ message: 'Password must be at least 8 characters and include an uppercase and a lowercase letter. Complete all required fields and accept the borrowing terms.' });
   const passwordHash = await bcrypt.hash(data.password, 12);
   let user;
@@ -79,6 +80,7 @@ exports.google = async (req, res) => {
 };
 exports.googleRegister = async (req, res) => {
   const studentId = clean(req.body?.studentId).toUpperCase();
+  if (studentId.length !== 10) return res.status(400).json({ message: 'Student / staff ID must contain exactly 10 characters.' });
   const department = clean(req.body?.department);
   if (!studentId || studentId.length > 50 || !department || department.length > 120 || req.body?.acceptedTerms !== true) return res.status(400).json({ message: 'Enter your student or staff ID, department, and accept the borrowing terms.' });
   let profile;

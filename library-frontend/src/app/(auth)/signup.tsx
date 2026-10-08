@@ -10,6 +10,7 @@ export default function Signup() {
   const [name, setName] = useState(''), [student, setStudent] = useState(''), [email, setEmail] = useState(''), [password, setPassword] = useState(''), [department, setDepartment] = useState(''), [accepted, setAccepted] = useState(false), [error, setError] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const studentError = student.trim().length === 10 ? '' : 'Student / staff ID must contain exactly 10 characters.';
   const normalizedEmail = (pendingGoogle?.email || email).trim().toLowerCase();
   const emailError = normalizedEmail.length <= 254 && /^[^\s@]+@(my\.sliit\.lk|gmail\.com)$/.test(normalizedEmail)
     ? '' : 'Use a valid email ending in @my.sliit.lk or @gmail.com.';
@@ -26,6 +27,10 @@ export default function Signup() {
   async function submit() {
     if (busy) return;
     setSubmitted(true);
+    if (studentError) {
+      setError('');
+      return;
+    }
     if (emailError) {
       setError(pendingGoogle ? emailError : '');
       return;
@@ -68,7 +73,9 @@ export default function Signup() {
           <Text style={u.body}>{pendingGoogle ? `Signed in as ${pendingGoogle.email}. Add your library details to continue.` : 'Use your university details to join the library.'}</Text>
         </View>
         {!pendingGoogle && <Field label="FULL NAME" placeholder="Alex Morgan" value={name} onChangeText={setName} autoComplete="name" style={{ backgroundColor: c.primarySoft }} />}
-        <Field label="STUDENT / STAFF ID" placeholder="IT20240001" value={student} onChangeText={setStudent} style={{ backgroundColor: c.primarySoft }} />
+        <Field label="STUDENT / STAFF ID" placeholder="IT20240001" value={student} onChangeText={value => { setStudent(value); setError(''); }} style={{ backgroundColor: c.primarySoft }} />
+        <Text style={u.caption}>Exactly 10 characters (for example, IT20240001).</Text>
+        {!!studentError && (submitted || student.length > 0) && <Message error>{studentError}</Message>}
         {!pendingGoogle && <>
           <Field label="EMAIL ADDRESS" placeholder="you@my.sliit.lk or you@gmail.com" value={email} onChangeText={value => { setEmail(value); setError(''); }} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" style={{ backgroundColor: c.primarySoft }} />
           {!!emailError && (submitted || email.length > 0) && <Message error>{emailError}</Message>}
