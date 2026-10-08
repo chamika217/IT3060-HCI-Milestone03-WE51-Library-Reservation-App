@@ -1,6 +1,8 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { resolveApiUrl } from './api-url';
 import type { Book, Reservation } from '@/types/book';
-const base = (process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api')).replace(/\/$/, '');
+const base = resolveApiUrl(process.env.EXPO_PUBLIC_API_URL, Platform.OS, __DEV__, Constants.expoConfig?.hostUri);
 let sessionToken: string | null = null;
 // Call after login; clear on logout. The auth feature owns secure persistence.
 export function setBookSessionToken(token: string | null) { sessionToken = token; }
@@ -14,7 +16,7 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
     const data = await response.json().catch(() => ({ message: 'The server returned an invalid response.' }));
     if (!response.ok) throw new Error(data.message || 'Request failed.');
     return data;
-  } catch (error) { if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Failed to fetch' || error.message === 'Network request failed')) throw new Error('Cannot reach the library server. Check your connection and try again.'); throw error; } finally { clearTimeout(timer); }
+  } catch (error) { if (error instanceof Error && (error.name === 'AbortError' || /failed to fetch|fetch failed|network request failed|ConnectException/i.test(error.message))) throw new Error('Cannot reach the library server. Make sure the server is running and your phone and computer are on the same Wi-Fi.'); throw error; } finally { clearTimeout(timer); }
 }
 export const booksApi = {
   list: () => request<{ books: Book[] }>('/books'),
