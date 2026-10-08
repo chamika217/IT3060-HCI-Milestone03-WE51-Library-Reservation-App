@@ -22,6 +22,10 @@ From library-backend, copy .env.example to .env only if no .env exists. Set MONG
 
 From library-frontend, run `npm.cmd run web` or `npm.cmd start`. Open "Search library books" on Home, or /books in the browser. For a physical phone set EXPO_PUBLIC_API_URL to the computer's LAN IP with port 5000 and /api. Restart Expo after changing environment variables.
 
+## Book catalogue API
+
+All endpoints are under `/api/books`. `GET /` lists books, and `GET /:id` returns one. Signed-in sessions can manage catalogue entries: `POST /` creates a book, `PATCH /:id` updates supplied fields, and `DELETE /:id` removes a book only when it has no active reservations. Send the session as `Authorization: Bearer <token>`. Create requires `title`, `author`, and non-negative integer `copies`; editable fields are `title`, `author`, `isbn`, `category`, `description`, `color`, `cover`, and `copies`.
+
 Root tsconfig now delegates to the frontend config. Expo app.json is also present inside library-frontend, alongside its assets and package.json. The starter root navigation is a Stack so book pages are reachable on native and web; teammate profile and notifications files are retained.
 
 ## Auth teammate integration (required for real reservations)

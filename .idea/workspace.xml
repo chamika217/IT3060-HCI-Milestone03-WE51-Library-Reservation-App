@@ -5,10 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="23922ca6-14b9-4335-ac60-79ff555a0a48" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/library-backend/config/database.js" beforeDir="false" afterPath="$PROJECT_DIR$/library-backend/config/database.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/library-backend/models/Book.js" beforeDir="false" afterPath="$PROJECT_DIR$/library-backend/models/Book.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/library-backend/services/catalogue.js" beforeDir="false" afterPath="$PROJECT_DIR$/library-backend/services/catalogue.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/library-frontend/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/library-frontend/.gitignore" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
