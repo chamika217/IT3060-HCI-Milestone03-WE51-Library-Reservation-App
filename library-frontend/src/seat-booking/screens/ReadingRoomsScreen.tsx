@@ -150,8 +150,6 @@ export default function ReadingRoomsScreen() {
     setActiveTab(tab);
     if (tab === 'Bookings') {
       router.push('/seats/my-bookings');
-    } else if (tab === 'Alerts') {
-      router.push('/seats/auto-release-warning');
     }
   };
 

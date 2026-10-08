@@ -148,19 +148,6 @@ export default function MyBookingsScreen() {
     setBottomTab(tab);
     if (tab === 'Home') {
       router.push('/seats');
-    } else if (tab === 'Alerts') {
-      // Pass the first active booking's details if one exists
-      const first = reservations[0];
-      router.push({
-        pathname: '/seats/auto-release-warning',
-        params: first
-          ? {
-              seatNumber: first.seatNumber,
-              roomName: first.roomName,
-              timeRange: first.timeRange,
-            }
-          : {},
-      });
     }
   };
 

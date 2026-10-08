@@ -257,6 +257,12 @@ export default function SeatAutoReleaseWarningScreen() {
   useEffect(() => {
     if (!activeBooking || hasAutoReleased) return;
 
+    // Do NOT start a countdown if the booking was already expired when this
+    // screen mounted (e.g. user navigated here from the Alerts tab after their
+    // slot had already ended). Only auto-release after a live countdown reaches 0.
+    const initialSecs = secsUntilEnd(endMinutes);
+    if (initialSecs === 0) return;
+
     timerRef.current = setInterval(() => {
       const secs = secsUntilEnd(endMinutes);
       setRemainingSecs(secs);
@@ -265,7 +271,8 @@ export default function SeatAutoReleaseWarningScreen() {
       const nowMins = now.getHours() * 60 + now.getMinutes();
       setIsInWarningWindow(nowMins >= warningStartMins);
 
-      // Auto-release when countdown hits 0
+      // Auto-release only after the timer has counted down to 0 from a
+      // non-zero starting point — never on mount for an already-expired slot.
       if (secs === 0 && !hasAutoReleased) {
         setHasAutoReleased(true);
         if (timerRef.current) clearInterval(timerRef.current);
@@ -632,7 +639,6 @@ export default function SeatAutoReleaseWarningScreen() {
         onTabPress={(tab: TabName) => {
           if (tab === 'Home') router.push('/seats');
           else if (tab === 'Bookings') router.push('/seats/my-bookings');
-          else if (tab === 'Alerts') router.push('/seats/auto-release-warning');
         }}
       />
     </SafeAreaView>
