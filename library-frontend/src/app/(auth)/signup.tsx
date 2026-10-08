@@ -8,15 +8,25 @@ import { palette as c } from '@/constants/design-system';
 export default function Signup() {
   const { register, pendingGoogle, completeGoogleRegistration, clearGoogleRegistration } = useLibrary(); const [busy, setBusy] = useState(false);
   const [name, setName] = useState(''), [student, setStudent] = useState(''), [email, setEmail] = useState(''), [password, setPassword] = useState(''), [department, setDepartment] = useState(''), [accepted, setAccepted] = useState(false), [error, setError] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const passwordError = password.length === 0
-    ? ''
+    ? 'Enter a password.'
     : password.length < 8
       ? 'Password must contain at least 8 characters.'
       : !/[a-z]/.test(password) || !/[A-Z]/.test(password)
         ? 'Password must include at least one uppercase and one lowercase letter.'
         : '';
+  const confirmationError = !confirmPassword
+    ? 'Confirm your password.'
+    : confirmPassword !== password ? 'Passwords do not match.' : '';
   async function submit() {
     if (busy) return;
+    setSubmitted(true);
+    if (!pendingGoogle && (passwordError || confirmationError)) {
+      setError('');
+      return;
+    }
     const completeProfile = student.trim() && department.trim() && accepted;
     const validPassword = password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password);
     const completePasswordSignup = name.trim() && email.includes('@') && validPassword;
@@ -30,7 +40,7 @@ export default function Signup() {
     try {
       if (pendingGoogle) await completeGoogleRegistration({ credential: pendingGoogle.credential, studentId: student, department, acceptedTerms: accepted });
       else await register({ name, studentId: student, department, email, password, acceptedTerms: accepted });
-      setPassword(''); router.replace('/home');
+      setPassword(''); setConfirmPassword(''); router.replace('/home');
     } catch (e) { setError(e instanceof Error ? e.message : 'Registration failed.'); }
     finally { setBusy(false); }
   }
@@ -55,8 +65,11 @@ export default function Signup() {
         {!pendingGoogle && <Field label="UNIVERSITY EMAIL" placeholder="you@university.edu" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" style={{ backgroundColor: c.primarySoft }} />}
         <Field label="DEPARTMENT / FACULTY" placeholder="School of Computing" value={department} onChangeText={setDepartment} style={{ backgroundColor: c.primarySoft }} />
         {!pendingGoogle && <>
-          <Field label="PASSWORD" placeholder="8+ characters, uppercase and lowercase" value={password} onChangeText={value => { setPassword(value); setError(''); }} secureTextEntry autoComplete="new-password" style={{ backgroundColor: c.primarySoft }} />
-          {!!passwordError && <Message error>{passwordError}</Message>}
+          <Field label="PASSWORD" placeholder="Enter a password" value={password} onChangeText={value => { setPassword(value); setError(''); }} secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete="new-password" style={{ backgroundColor: c.primarySoft }} />
+          <Text style={u.caption}>Use at least 8 characters, including an uppercase and a lowercase letter.</Text>
+          {!!passwordError && (submitted || password.length > 0) && <Message error>{passwordError}</Message>}
+          <Field label="CONFIRM PASSWORD" placeholder="Re-enter your password" value={confirmPassword} onChangeText={value => { setConfirmPassword(value); setError(''); }} secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete="new-password" style={{ backgroundColor: c.primarySoft }} />
+          {!!confirmationError && (submitted || confirmPassword.length > 0) && <Message error>{confirmationError}</Message>}
         </>}
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} onPress={() => setAccepted(!accepted)} style={u.row}>
           <Icon name={accepted ? 'check-square' : 'square'} color={accepted ? c.primary : c.secondary} />
