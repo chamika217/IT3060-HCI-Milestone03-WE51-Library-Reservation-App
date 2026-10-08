@@ -32,9 +32,9 @@ Root tsconfig now delegates to the frontend config. Expo app.json is also presen
 The repo currently has no login implementation. After login call `setBookSessionToken(accessToken)` from services/books-api.ts; call it with null on logout. Use HS256 JWTs with string `sub` containing the user ID and an `exp` expiry, signed with the backend JWT_SECRET. Keep JWT_SECRET backend-only. If the team's token contract differs, adapt requireAuth.js. No client-supplied user ID is trusted. Until auth is connected, browsing works, and reservations show a sign-in/configuration error rather than creating anonymous holds.
 
 ## Endpoints
-GET /api/books?q=term; GET /api/books/:id; authenticated GET/POST /api/reservations; authenticated DELETE /api/reservations/:id.
+GET /api/books?q=term; GET /api/books/:id; authenticated GET/POST/PATCH /api/reservations; authenticated DELETE /api/reservations/:id.
 POST body: { bookId, pickupDate: "YYYY-MM-DD", pickupWindow: "9-11 AM" | "12-2 PM" | "4-6 PM" }.
-Dates use Asia/Colombo, today through seven days ahead. Inventory decrements and insertion share one atomic document update; cancellation checks ownership and restores one copy once.
+PATCH /api/reservations/:id body: { pickupDate, pickupWindow }. It changes the signed-in user's pickup date and time for that reservation; dates use Asia/Colombo, today through seven days ahead. Inventory decrements and insertion share one atomic document update; update and cancellation check reservation ownership, and cancellation restores one copy once.
 
 ## Checks
 Backend: npm.cmd test. Frontend: npx.cmd tsc --noEmit and npm.cmd run lint.

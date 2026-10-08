@@ -45,6 +45,19 @@ exports.create = async (req, res) => {
   }
   res.status(201).json({ reservation: { ...publicBook(book), reservationId: reservation._id, pickupDate, pickupWindow, pickupCode: reservation.pickupCode } });
 };
+exports.update = async (req, res) => {
+  const { pickupDate, pickupWindow } = req.body || {};
+  if (!validPickup(pickupDate, pickupWindow)) return res.status(400).json({ message: 'Choose a pickup date within seven days and a valid time window.' });
+
+  const book = await Book.collection.findOneAndUpdate(
+    { reservations: { $elemMatch: { _id: req.params.id, userId: req.userId } } },
+    { $set: { 'reservations.$.pickupDate': pickupDate, 'reservations.$.pickupWindow': pickupWindow, updatedAt: new Date() } },
+    { returnDocument: 'after' },
+  );
+  if (!book) return res.status(404).json({ message: 'Reservation not found.' });
+  const reservation = book.reservations.find(item => item._id === req.params.id && item.userId === req.userId);
+  res.json({ reservation: { ...publicBook(book), reservationId: reservation._id, pickupDate: reservation.pickupDate, pickupWindow: reservation.pickupWindow, pickupCode: reservation.pickupCode } });
+};
 exports.cancel = async (req, res) => {
   const result = await Book.collection.updateOne(
     { reservations: { $elemMatch: { _id: req.params.id, userId: req.userId } } },

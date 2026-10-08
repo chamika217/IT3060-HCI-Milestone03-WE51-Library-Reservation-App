@@ -6,7 +6,7 @@ const app = express();
 app.disable('x-powered-by');
 const origins = (process.env.CORS_ORIGIN || 'http://localhost:8081').split(',').map(s => s.trim());
 app.use((req, res, next) => { req.requestId = randomUUID(); res.set({ 'X-Request-ID': req.requestId, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }); next(); });
-app.use(cors({ origin: origins, methods: ['GET', 'POST', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+app.use(cors({ origin: origins, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json({ limit: '16kb' }));
 app.get('/', (req, res) => res.json({ service: 'LibraReserve API', version: '1.0.0' }));
 app.get('/api/health', async (req, res) => { if (mongoose.connection.readyState !== 1) return res.status(503).json({ status: 'unavailable' }); await mongoose.connection.db.command({ ping: 1 }); res.json({ status: 'ok' }); });

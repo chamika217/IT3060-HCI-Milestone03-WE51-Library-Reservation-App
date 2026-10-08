@@ -21,5 +21,6 @@ export const booksApi = {
   detail: (id: string) => request<{ book: Book }>('/books/' + encodeURIComponent(id)),
   reservations: () => request<{ reservations: Reservation[] }>('/reservations'),
   reserve: (bookId: string, pickupDate: string, pickupWindow: string) => request<{ reservation: Reservation }>('/reservations', 'POST', { bookId, pickupDate, pickupWindow }),
+  updateReservation: (id: string, pickupDate: string, pickupWindow: string) => request<{ reservation: Reservation }>('/reservations/' + encodeURIComponent(id), 'PATCH', { pickupDate, pickupWindow }),
   cancel: (id: string) => request('/reservations/' + encodeURIComponent(id), 'DELETE'),
 };
