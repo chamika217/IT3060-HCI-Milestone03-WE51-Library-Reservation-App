@@ -5,13 +5,22 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-// All routes in this file require a valid JWT
+// Accepts both legacy JWTs and the opaque sessions used by the current auth routes.
 router.use(auth);
+
+function requireSelf(req, res) {
+  if (String(req.params.id) !== String(req.userId)) {
+    res.status(403).json({ message: 'You can only access your own account.' });
+    return false;
+  }
+  return true;
+}
 
 // ── GET /api/users/:id ────────────────────────────────────────────────────────
 // Returns the full user profile (password excluded by toJSON transform).
 router.get('/:id', async (req, res) => {
   try {
+    if (!requireSelf(req, res)) return;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found.' });
 
@@ -49,6 +58,7 @@ router.get('/:id', async (req, res) => {
 // studentId is intentionally excluded from the allowed update fields.
 router.put('/:id', async (req, res) => {
   try {
+    if (!requireSelf(req, res)) return;
     const allowed = ['fullName', 'email', 'phone', 'program', 'semester'];
     const updates = {};
     for (const key of allowed) {
@@ -77,6 +87,7 @@ router.put('/:id', async (req, res) => {
 // Replaces the notificationPreferences sub-document.
 router.put('/:id/preferences', async (req, res) => {
   try {
+    if (!requireSelf(req, res)) return;
     const allowed = [
       'pushEnabled', 'bookHolds', 'seatAlerts',
       'dueDateReminders', 'cancellationNotices',
@@ -85,7 +96,12 @@ router.put('/:id/preferences', async (req, res) => {
 
     const prefs = {};
     for (const key of allowed) {
-      if (req.body[key] !== undefined) prefs[`notificationPreferences.${key}`] = req.body[key];
+      if (req.body[key] !== undefined) {
+        if (typeof req.body[key] !== 'boolean') {
+          return res.status(400).json({ message: `${key} must be a boolean.` });
+        }
+        prefs[`notificationPreferences.${key}`] = req.body[key];
+      }
     }
 
     if (Object.keys(prefs).length === 0) {
@@ -95,7 +111,7 @@ router.put('/:id/preferences', async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { $set: prefs },
-      { new: true },
+      { new: true, runValidators: true },
     );
 
     if (!user) return res.status(404).json({ message: 'User not found.' });
@@ -114,6 +130,7 @@ router.put('/:id/preferences', async (req, res) => {
 // Verifies old password then hashes and saves the new one.
 router.put('/:id/password', async (req, res) => {
   try {
+    if (!requireSelf(req, res)) return;
     const { oldPassword, newPassword } = req.body;
 
     if (!oldPassword || !newPassword) {
@@ -125,7 +142,7 @@ router.put('/:id/password', async (req, res) => {
     }
 
     // findById without lean so pre-save hook fires
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).select('+passwordHash');
     if (!user) return res.status(404).json({ message: 'User not found.' });
 
     const match = await user.comparePassword(oldPassword);

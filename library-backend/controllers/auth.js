@@ -14,7 +14,9 @@ const credentials = body => {
 exports.register = async (req, res) => {
   if (!validRegistrationEmail(req.body?.email)) return res.status(400).json({ message: emailMessage });
   const data = credentials(req.body);
-  const name = clean(req.body?.name), studentId = clean(req.body?.studentId).toUpperCase(), department = clean(req.body?.department);
+  const name = clean(req.body?.name || req.body?.fullName);
+  const studentId = clean(req.body?.studentId).toUpperCase();
+  const department = clean(req.body?.department || req.body?.program);
   if (studentId.length !== 10) return res.status(400).json({ message: 'Student / staff ID must contain exactly 10 characters.' });
   if (!data || data.password.length < 8 || !/[a-z]/.test(data.password) || !/[A-Z]/.test(data.password) || !name || name.length > 120 || !studentId || studentId.length > 50 || !department || department.length > 120 || req.body?.acceptedTerms !== true) return res.status(400).json({ message: 'Password must be at least 8 characters and include an uppercase and a lowercase letter. Complete all required fields and accept the borrowing terms.' });
   const passwordHash = await bcrypt.hash(data.password, 12);
@@ -26,10 +28,10 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   const data = credentials(req.body);
   if (!data) return res.status(400).json({ message: 'Enter a valid email and password.' });
-  const user = await User.findOne({ email: data.email }).select('+passwordHash');
+  const user = await User.findOne({ email: data.email }).select('+passwordHash +password');
   // Match the password hashing work even for an unknown account.
   const dummy = '$2b$12$000000000000000000000uOGpQDVjhHJuJ/VnFBzjNR3Bw9tJcCy6';
-  const valid = await bcrypt.compare(data.password, user?.passwordHash || dummy);
+  const valid = await bcrypt.compare(data.password, user?.passwordHash || user?.password || dummy);
   if (!user || !valid) return res.status(401).json({ message: 'Email or password is incorrect.' });
   res.json(await createSession(user));
 };
@@ -105,4 +107,7 @@ exports.me = async (req, res) => {
   if (!user) return res.status(401).json({ message: 'Account not found. Please sign in again.' });
   res.json({ user: publicUser(user) });
 };
-exports.logout = async (req, res) => { await Session.deleteOne({ _id: req.sessionId }); res.json({ ok: true }); };
+exports.logout = async (req, res) => {
+  if (req.sessionId) await Session.deleteOne({ _id: req.sessionId });
+  res.json({ ok: true });
+};

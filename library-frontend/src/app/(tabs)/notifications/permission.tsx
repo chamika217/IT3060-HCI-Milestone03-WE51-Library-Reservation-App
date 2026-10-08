@@ -18,21 +18,22 @@
  * Until then, the permission call is safely stubbed so the screen renders.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   StyleSheet,
-  Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 
 import { IonIcon, StatusBadge, BottomNavBar } from '@/components/notifications';
-import { getUnreadCount } from '@/features/notifications/mockData';
-import { MOCK_NOTIFICATIONS } from '@/features/notifications/mockData';
+import { getNotifications } from '@/services/api';
+import { useLibrary } from '@/state/library';
 
 // ─── Benefit row data ─────────────────────────────────────────────────────────
 
@@ -73,36 +74,47 @@ const BENEFITS: BenefitItem[] = [
 
 export default function PermissionScreen() {
   const insets = useSafeAreaInsets();
-  const unreadCount = getUnreadCount(MOCK_NOTIFICATIONS);
+  const { user } = useLibrary();
+  const [unreadCount, setUnreadCount] = useState(0);
   const [requesting, setRequesting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    if (user?.id) {
+      getNotifications(user.id)
+        .then(items => {
+          if (active) setUnreadCount(items.filter(item => item.status === 'unread').length);
+        })
+        .catch(() => {
+          if (active) setUnreadCount(0);
+        });
+    }
+    return () => { active = false; };
+  }, [user?.id]);
 
   async function handleAllow() {
     setRequesting(true);
+    setError('');
     try {
-      /**
-       * expo-notifications is loaded at runtime via a require() call so the
-       * TypeScript compiler never sees the unresolved module path.
-       * Once `npx expo install expo-notifications` has run, this works as-is.
-       * If the package is absent (dev environment without native modules),
-       * the require throws and we fall through to the catch block.
-       */
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Notifications = require('expo-notifications') as {
-        requestPermissionsAsync: () => Promise<{ status: string }>;
-      };
+      if (Platform.OS === 'web') {
+        setError('Notification permissions are available in the iOS and Android app.');
+        return;
+      }
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Library updates',
+          importance: Notifications.AndroidImportance.DEFAULT,
+        });
+      }
       const { status } = await Notifications.requestPermissionsAsync();
       if (status === 'granted') {
         router.replace('/(tabs)/notifications' as never);
       } else {
-        Alert.alert(
-          'Notifications Blocked',
-          'You can enable notifications any time from your device Settings.',
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
+        setError('Permission was not granted. You can enable notifications any time from your device Settings.');
       }
-    } catch {
-      // Package not installed yet — navigate forward as if granted in dev
-      router.replace('/(tabs)/notifications' as never);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not request notification permission.');
     } finally {
       setRequesting(false);
     }
@@ -150,7 +162,7 @@ export default function PermissionScreen() {
           Stay Updated with{'\n'}Campus Alerts
         </Text>
         <Text style={styles.body}>
-          Never miss a hold, seat expiry, or schedule change. We'll only send
+          Never miss a hold, seat expiry, or schedule change. We&apos;ll only send
           notifications that matter to your reservations.
         </Text>
 
@@ -173,6 +185,8 @@ export default function PermissionScreen() {
             <Text style={styles.noteLink}>Account Settings</Text>.
           </Text>
         </View>
+
+        {!!error && <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text>}
 
         {/* ── Allow button ──────────────────────────────────────── */}
         <Pressable
@@ -346,6 +360,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 21,
     maxWidth: 320,
+  },
+  errorText: {
+    width: '100%',
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#F04F55',
+    textAlign: 'center',
   },
 
   // Benefits card

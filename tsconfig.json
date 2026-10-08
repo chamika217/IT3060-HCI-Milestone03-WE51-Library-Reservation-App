@@ -1,5 +1,4 @@
 {
-  "extends": "./library-frontend/tsconfig.json",
   "extends": "./library-frontend/node_modules/expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,

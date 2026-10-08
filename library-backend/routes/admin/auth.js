@@ -6,8 +6,8 @@ const User = require('../../models/User');
 router.post('/login', async (req, res) => {
   try {
     const { email = '', password = '' } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user || !(await bcrypt.compare(password, user.password)))
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+passwordHash');
+    if (!user || !(await bcrypt.compare(password, user.passwordHash || user.password)))
       return res.status(401).json({ message: 'Invalid username or password' });
     if (!['Staff', 'Admin'].includes(user.role))
       return res.status(403).json({ message: 'Staff access only' });

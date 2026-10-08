@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { Book, Reservation } from '@/types/book';
 import { authApi, type User, type Registration, type GoogleRegistration } from '@/services/auth-api';
-import { booksApi, setBookSessionToken } from '@/services/books-api';
+import { booksApi } from '@/services/books-api';
+import { clearAuthToken, setAuthToken } from '@/services/api';
 export type Filters = { category: string; available: boolean };
 type PendingGoogle = { credential: string; name: string; email: string };
 type Library = { user: User | null; login: (email: string, password: string) => Promise<void>; loginWithGoogle: (credential: string) => Promise<boolean>; pendingGoogle: PendingGoogle | null; completeGoogleRegistration: (details: GoogleRegistration) => Promise<void>; clearGoogleRegistration: () => void; register: (details: Registration) => Promise<void>; logout: () => Promise<void>; demo: boolean; query: string; setQuery: (value: string) => void; filters: Filters; setFilters: (value: Filters) => void; books: Book[]; holds: Reservation[]; name: string; list: () => Promise<Book[]>; listHolds: () => Promise<Reservation[]>; reserve: (id: string, date: string, window: string) => Promise<Reservation>; updateReservation: (id: string, date: string, window: string) => Promise<Reservation>; cancel: (id: string) => Promise<void>; confirmation: Reservation | null };
@@ -27,7 +28,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return result;
   }
   async function cancel(id: string) { await booksApi.cancel(id); setHolds(current => current.filter(h => h.reservationId !== id)); }
-  function acceptSession(session: { user: User; token: string }) { setBookSessionToken(session.token); setUser(session.user); setName(session.user.name); setBooks([]); setHolds([]); setConfirmation(null); setQuery(''); setFilters({ category: 'All', available: false }); }
+  function acceptSession(session: { user: User; token: string }) { setAuthToken(session.token, session.user.id); setUser(session.user); setName(session.user.name); setBooks([]); setHolds([]); setConfirmation(null); setQuery(''); setFilters({ category: 'All', available: false }); }
   async function login(email: string, password: string) { acceptSession(await authApi.login(email, password)); }
   async function loginWithGoogle(credential: string) {
     const result = await authApi.google(credential);
@@ -37,7 +38,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   async function completeGoogleRegistration(details: GoogleRegistration) { acceptSession(await authApi.googleRegister(details)); setPendingGoogle(null); }
   function clearGoogleRegistration() { setPendingGoogle(null); }
   async function register(details: Registration) { acceptSession(await authApi.register(details)); }
-  async function logout() { if (user) await authApi.logout(); setBookSessionToken(null); setUser(null); setName(''); setBooks([]); setHolds([]); setConfirmation(null); }
+  async function logout() { if (user) await authApi.logout(); clearAuthToken(); setUser(null); setName(''); setBooks([]); setHolds([]); setConfirmation(null); }
   return <Context.Provider value={{ user, login, loginWithGoogle, pendingGoogle, completeGoogleRegistration, clearGoogleRegistration, register, logout, demo, query, setQuery, filters, setFilters, books, holds, name, list, listHolds, reserve, updateReservation, cancel, confirmation }}>{children}</Context.Provider>;
 }
 export function useLibrary() { const value = useContext(Context); if (!value) throw new Error('LibraryProvider required'); return value; }

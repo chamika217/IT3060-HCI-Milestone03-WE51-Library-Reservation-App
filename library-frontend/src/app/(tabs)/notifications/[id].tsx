@@ -55,14 +55,18 @@ export default function NotificationDetailScreen() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
-    setError(null);
+    let active = true;
     getNotificationDetail(String(id))
-      .then(setNotification)
+      .then(value => {
+        if (active) setNotification(value);
+      })
       .catch((err) =>
-        setError(err instanceof Error ? err.message : 'Failed to load notification.'),
+        active && setError(err instanceof Error ? err.message : 'Failed to load notification.'),
       )
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [id]);
 
   // ── Loading ──────────────────────────────────────────────────────────────

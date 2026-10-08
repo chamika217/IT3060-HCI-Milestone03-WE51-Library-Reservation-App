@@ -1,104 +1,63 @@
-require('dotenv').config({ path: require('node:path').join(__dirname, '.env') });
+const mongoose = require('mongoose');
+mongoose.set('autoIndex', false);
+
+const app = require('./app');
 const connectDatabase = require('./config/database');
+
 async function start() {
   await connectDatabase();
-  const booksCollection = require('mongoose').connection.db.collection('books');
+  console.log('MongoDB connection established.');
+
+  const booksCollection = mongoose.connection.db.collection('books');
   const bookIndexes = await booksCollection.listIndexes().toArray();
   const isbnIndex = bookIndexes.find(index => index.name === 'isbn_1');
-  if (isbnIndex && !isbnIndex.partialFilterExpression) {
-    await booksCollection.dropIndex('isbn_1');
-  }
-  await Promise.all([require('./models/User').init(), require('./models/Session').init(), require('./models/Book').init()]);
+  if (isbnIndex && !isbnIndex.partialFilterExpression) await booksCollection.dropIndex('isbn_1');
+
+  const usersCollection = mongoose.connection.db.collection('users');
+  const userIndexes = await usersCollection.listIndexes().toArray();
+  const studentIdIndex = userIndexes.find(index =>
+    index.name === 'studentId_1'
+    && index.unique === true
+    && index.sparse !== true
+    && index.key?.studentId === 1
+    && Object.keys(index.key).length === 1
+  );
+  if (studentIdIndex) await usersCollection.dropIndex(studentIdIndex.name);
+
+  const models = [
+    './models/User',
+    './models/Session',
+    './models/Book',
+    './models/Reservation',
+    './models/Seat',
+    './seat-booking/models/Room',
+    './seat-booking/models/Seat',
+    './seat-booking/models/Reservation',
+  ].map(require);
+  await Promise.all(models.map(model => model.init()));
+  await Promise.all(models.map(model => model.createIndexes()));
   await require('./services/catalogue').seedBooks();
-  const server = require('./app').listen(Number(process.env.PORT) || 5000, () => console.log('Library API connected; listening on port ' + (process.env.PORT || 5000)));
-  server.on('error', async error => { console.error(`Cannot listen (${error?.code || error?.name || 'UnknownError'}): ${error?.message || 'Check PORT.'}`); await require('mongoose').disconnect(); process.exitCode = 1; });
-  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => server.close(async () => { await require('mongoose').disconnect(); }));
+
+  const port = Number(process.env.PORT) || 5000;
+  const server = app.listen(port, () => console.log(`Library API connected; listening on port ${port}`));
+  server.on('error', async error => {
+    console.error(`Cannot listen (${error.code || error.name || 'UnknownError'}): ${error.message || 'Check PORT.'}`);
+    await mongoose.disconnect();
+    process.exitCode = 1;
+  });
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.once(signal, () => server.close(async () => {
+      await mongoose.disconnect();
+    }));
+  }
 }
+
 start().catch(async error => {
-  const code = error?.cause?.code || error?.code || error?.name || 'UnknownError';
-  const detail = String(error?.message || 'Unknown startup error')
+  const code = error.cause?.code || error.code || error.name || 'UnknownError';
+  const detail = String(error.message || 'Unknown startup error')
     .replace(/mongodb(?:\+srv)?:\/\/[^@\s]+@/gi, 'mongodb+srv://[credentials-hidden]@');
   console.error(`Cannot start API (${code}): ${detail}`);
-  console.error('Check Atlas Network Access, database credentials, and MongoDB connectivity.');
-  await require('mongoose').disconnect();
+  console.error('Check MONGODB_URI, Atlas Network Access and credentials, and any MongoDB index conflict reported above.');
+  await mongoose.disconnect();
   process.exitCode = 1;
 });
-﻿const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-require('dotenv').config();
-
-// ── Route imports ─────────────────────────────────────────────────────────────
-const authRoutes         = require('./routes/auth');
-const userRoutes         = require('./routes/users');
-const notificationRoutes = require('./routes/notifications');
-const contactRoutes      = require('./routes/contact');
-const faqRoutes          = require('./routes/faq');
-const auth               = require('./middleware/auth');
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use('/api/rooms', require('./seat-booking/routes/roomRoutes'));
-app.use('/api/seats', require('./seat-booking/routes/seatRoutes'));
-app.use('/api/reservations', require('./seat-booking/routes/reservationRoutes'));
-
-mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 10000,
-  tls: true,
-  tlsInsecure: true, // dev only — disable cert verification (corporate/university proxy)
-})
-  .then(() => console.log('✓ MongoDB connected successfully'))
-  .catch((err) => {
-    console.error('✗ MongoDB connection error:', err.message);
-    console.error(
-      '\nCommon causes:\n' +
-      '  1. Your IP is not whitelisted in MongoDB Atlas.\n' +
-      '     Fix: Atlas dashboard → Security → Network Access → Add Current IP\n' +
-      '  2. Wrong MONGODB_URI in .env\n' +
-      '  3. No internet connection\n'
-    );
-    // Don't crash — allow the server to stay up so other routes still work
-  });
-
-
-app.use('/api/admin/auth', require('./routes/admin/auth'));
-app.use('/api/admin/books', require('./routes/admin/books'));
-app.use('/api/admin/categories', require('./routes/admin/categories'));
-app.use('/api/admin/users', require('./routes/admin/users'));
-app.use('/api/admin/reservations', require('./routes/admin/reservations'));
-app.use('/api/admin/seats', require('./routes/admin/seats'));
-app.use('/api/admin/announcements', require('./routes/admin/announcements'));
-app.use('/api/admin/stats', require('./routes/admin/stats'));
-
-
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected successfully'))
-  .catch((err) => console.error('MongoDB connection error:', err));
-// Reconnect logging
-mongoose.connection.on('disconnected', () =>
-  console.warn('⚠ MongoDB disconnected. Will retry automatically.'),
-);
-mongoose.connection.on('reconnected', () =>
-  console.log('✓ MongoDB reconnected.'),
-);
-
-app.get('/', (req, res) => {
-  res.send('Library Reservation API is running');
-});
-
-// ── API routes ────────────────────────────────────────────────────────────────
-app.use('/api/auth',          authRoutes);
-app.use('/api/users',         userRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/contact',       contactRoutes);
-app.use('/api/faq',           auth, faqRoutes);
-
-// 404 handler for unmatched routes
-app.use((req, res) => {
-  res.status(404).json({ message: `Route ${req.method} ${req.path} not found.` });
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log('Server running on port ' + PORT));
-

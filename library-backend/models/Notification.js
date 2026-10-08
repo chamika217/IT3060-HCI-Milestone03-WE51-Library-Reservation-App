@@ -60,4 +60,4 @@ const notificationSchema = new mongoose.Schema({
 // Compound index for fast per-user, sorted queries
 notificationSchema.index({ userId: 1, createdAt: -1 });
 
-module.exports = mongoose.model('Notification', notificationSchema);
+module.exports = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);
