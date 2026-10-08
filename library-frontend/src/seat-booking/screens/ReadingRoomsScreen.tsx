@@ -18,85 +18,95 @@ import { RoomCard } from '../components/RoomCard';
 import { SeatBottomNav, TabName } from '../components/SeatBottomNav';
 import { SeatSearchBar } from '../components/SeatSearchBar';
 import { Colors } from '../constants/designSystem';
-import { CATEGORY_TABS, INITIAL_CAMPUS_DENSITY, MOCK_ROOMS } from '../mock/roomsData';
+import { CATEGORY_TABS, MOCK_ROOMS } from '../mock/roomsData';
+import { useBookingStore } from '../store/bookingStore';
 import { CampusDensity, Room, RoomCategory } from '../types/seatBooking';
 
 const BACKEND_URL = 'http://localhost:5000/api/rooms';
 
 export default function ReadingRoomsScreen() {
-  const [rooms, setRooms] = useState<Room[]>(MOCK_ROOMS);
-  const [density] = useState<CampusDensity>(INITIAL_CAMPUS_DENSITY);
+  const { getOccupiedCount } = useBookingStore();
+
+  const [baseRooms] = useState<Room[]>(MOCK_ROOMS);
   const [selectedCategory, setSelectedCategory] = useState<RoomCategory>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<TabName>('Search');
+  const [apiRooms, setApiRooms] = useState<Room[] | null>(null);
 
-  // Fetch rooms from backend API if available, else retain mock data
-  const fetchRooms = useCallback(async () => {
-    try {
-      const response = await fetch(BACKEND_URL);
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const formattedRooms: Room[] = data.map((item: any, idx: number) => ({
-            _id: item._id || `api-${idx}`,
-            code: item.code || 'L1-STD',
-            name: item.name || 'Study Room',
-            level: item.level || 1,
-            category: item.category || 'silent-study',
-            totalSeats: item.totalSeats || 30,
-            openSeats: item.openSeats ?? Math.floor((item.totalSeats || 30) * 0.7),
-            occupiedSeats: item.occupiedSeats ?? Math.floor((item.totalSeats || 30) * 0.3),
-            floorDensity: item.floorDensity ?? 65,
-            amenities: item.amenities || ['Wi-Fi', 'Power Outlets'],
-            footerNote: item.footerNote || 'Peak: 12:00 - 15:00',
-            iconName: item.iconName || 'bookmark-outline',
-            statusType: item.statusType || 'open',
-          }));
-          setRooms(formattedRooms);
-        }
-      }
-    } catch {
-      // Fallback silently to initial mock data if API is offline
-    }
+  // Fetch rooms from backend API on mount (pull-to-refresh reuses the same logic).
+  // setState is only called via the mounted-guard callback, which satisfies the
+  // react-hooks/set-state-in-effect rule.
+  const fetchRooms = useCallback(() => {
+    let active = true;
+    fetch(BACKEND_URL)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: any) => {
+        if (!active || !Array.isArray(data) || data.length === 0) return;
+        const formattedRooms: Room[] = data.map((item: any, idx: number) => ({
+          _id: item._id || `api-${idx}`,
+          code: item.code || 'L1-STD',
+          name: item.name || 'Study Room',
+          level: item.level || 1,
+          category: item.category || 'silent-study',
+          totalSeats: item.totalSeats || 30,
+          openSeats: item.totalSeats || 30,
+          occupiedSeats: 0,
+          floorDensity: 0,
+          amenities: item.amenities || ['Wi-Fi', 'Power Outlets'],
+          footerNote: item.footerNote || 'Peak: 12:00 - 15:00',
+          iconName: item.iconName || 'bookmark-outline',
+          statusType: 'open' as const,
+        }));
+        setApiRooms(formattedRooms);
+      })
+      .catch(() => {/* silently fall back to mock data */});
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    fetch(BACKEND_URL)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (isMounted && Array.isArray(data) && data.length > 0) {
-          const formattedRooms: Room[] = data.map((item: any, idx: number) => ({
-            _id: item._id || `api-${idx}`,
-            code: item.code || 'L1-STD',
-            name: item.name || 'Study Room',
-            level: item.level || 1,
-            category: item.category || 'silent-study',
-            totalSeats: item.totalSeats || 30,
-            openSeats: item.openSeats ?? Math.floor((item.totalSeats || 30) * 0.7),
-            occupiedSeats: item.occupiedSeats ?? Math.floor((item.totalSeats || 30) * 0.3),
-            floorDensity: item.floorDensity ?? 65,
-            amenities: item.amenities || ['Wi-Fi', 'Power Outlets'],
-            footerNote: item.footerNote || 'Peak: 12:00 - 15:00',
-            iconName: item.iconName || 'bookmark-outline',
-            statusType: item.statusType || 'open',
-          }));
-          setRooms(formattedRooms);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    const cleanup = fetchRooms();
+    return cleanup;
+  }, [fetchRooms]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchRooms();
+    fetchRooms();
     setRefreshing(false);
   };
+
+  /**
+   * Merge API data (if available) with the booking store to produce live room
+   * objects with accurate occupancy fields.
+   */
+  const rooms: Room[] = useMemo(() => {
+    const source = apiRooms ?? baseRooms;
+    return source.map((room) => {
+      const occupied = getOccupiedCount(room.code);
+      const total = room.totalSeats;
+      const open = Math.max(0, total - occupied);
+      const density = total > 0 ? Math.round((occupied / total) * 100) : 0;
+      const statusType: Room['statusType'] =
+        density >= 85 ? 'crowded' : density >= 50 ? 'normal' : 'open';
+      return { ...room, occupiedSeats: occupied, openSeats: open, floorDensity: density, statusType };
+    });
+  }, [apiRooms, baseRooms, getOccupiedCount]);
+
+  /** Campus-wide density aggregated from all rooms dynamically. */
+  const density: CampusDensity = useMemo(() => {
+    const totalCapacity = rooms.reduce((sum, r) => sum + r.totalSeats, 0);
+    const totalOccupied = rooms.reduce((sum, r) => sum + r.occupiedSeats, 0);
+    const occupiedPercent = totalCapacity > 0 ? Math.round((totalOccupied / totalCapacity) * 100) : 0;
+    const openSeats = totalCapacity - totalOccupied;
+    const statusLabel =
+      occupiedPercent >= 85 ? 'Crowded' : occupiedPercent >= 50 ? 'Moderate' : 'Active';
+    return {
+      occupiedPercent,
+      openSeats,
+      statusLabel,
+      buildingName: 'Live occupancy across Malabe Main Library Complex New Building.',
+    };
+  }, [rooms]);
 
   // Filter rooms based on selected category tab & search query
   const filteredRooms = useMemo(() => {
@@ -140,6 +150,8 @@ export default function ReadingRoomsScreen() {
     setActiveTab(tab);
     if (tab === 'Bookings') {
       router.push('/seats/my-bookings');
+    } else if (tab === 'Alerts') {
+      router.push('/seats/auto-release-warning');
     }
   };
 

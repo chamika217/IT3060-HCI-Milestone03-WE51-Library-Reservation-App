@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -113,7 +113,9 @@ export default function MyBookingsScreen() {
 
   const handleTabPress = (tab: TabName) => {
     setBottomTab(tab);
-    if (tab === 'Alerts') {
+    if (tab === 'Home') {
+      router.push('/seats');
+    } else if (tab === 'Alerts') {
       router.push({
         pathname: '/seats/auto-release-warning',
         params: {

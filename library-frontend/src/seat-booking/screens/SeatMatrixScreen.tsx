@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -19,16 +19,46 @@ import { SeatDetailCard } from '../components/SeatDetailCard';
 import { SeatMatrixGrid } from '../components/SeatMatrixGrid';
 import { SeatMatrixLegend } from '../components/SeatMatrixLegend';
 import { Colors, Shadows } from '../constants/designSystem';
-import { MOCK_POD_SECTIONS } from '../mock/roomsData';
-import { DateOption, SeatItem } from '../types/seatBooking';
+import { generatePodSections, MOCK_ROOMS } from '../mock/roomsData';
+import { useBookingStore } from '../store/bookingStore';
+import { DateOption, PodSection, SeatItem } from '../types/seatBooking';
 
 export default function SeatMatrixScreen() {
   const params = useLocalSearchParams<{ roomCode?: string; roomName?: string }>();
+  const roomCode = params.roomCode || 'L2-NORTH';
   const roomName = params.roomName || 'Individual Study Area';
+
+  const { isSeatTaken } = useBookingStore();
 
   const [selectedDate, setSelectedDate] = useState<DateOption>('today');
   const [selectedSeat, setSelectedSeat] = useState<SeatItem | null>(null);
   const [activeTab, setActiveTab] = useState<TabName>('Search');
+
+  // Find matched room capacity; fall back to 60
+  const roomCapacity = useMemo(() => {
+    const found = MOCK_ROOMS.find((r) => r.code === roomCode);
+    return found?.totalSeats ?? 60;
+  }, [roomCode]);
+
+  /**
+   * Build the full pod grid from room capacity, then mark each seat as
+   * 'taken' if any slot for that seat on the selected date has been booked.
+   */
+  const podSections: PodSection[] = useMemo(() => {
+    const sections = generatePodSections(roomCapacity, roomCode);
+    const ALL_SLOT_IDS = ['t-0800','t-1000','t-1030','t-1230','t-1430','t-1630','t-1800'];
+    return sections.map((section) => ({
+      ...section,
+      seats: section.seats.map((seat) => {
+        const taken = ALL_SLOT_IDS.some((slotId) =>
+          isSeatTaken(roomCode, seat.seatNumber, slotId, selectedDate)
+        );
+        return taken ? { ...seat, status: 'taken' as const } : seat;
+      }),
+    }));
+  }, [roomCapacity, roomCode, isSeatTaken, selectedDate]);
+
+  const totalSeatsBadge = `${roomCapacity} SEATS`;
 
   const handleSelectSeat = (seat: SeatItem) => {
     if (selectedSeat?._id === seat._id) {
@@ -43,13 +73,13 @@ export default function SeatMatrixScreen() {
       Alert.alert('Please Select a Seat', 'Tap an available seat on the map grid to proceed.');
       return;
     }
-    // Navigate to Screen 03 (Confirm Reservation) with room, seat, and selected date parameters
     router.push({
       pathname: '/seats/confirm',
       params: {
         seatNumber: selectedSeat.seatNumber,
         dateOption: selectedDate,
         roomName: roomName,
+        roomCode: roomCode,
         powerSocket: selectedSeat.powerSocket || '230V Socket',
         usbPort: selectedSeat.usbPort || '65W Type-C',
         acoustics: selectedSeat.acoustics || 'Silent Zone',
@@ -84,11 +114,11 @@ export default function SeatMatrixScreen() {
         {/* Legend Bar */}
         <SeatMatrixLegend />
 
-        {/* Seat Layout Grid */}
+        {/* Seat Layout Grid — dynamic capacity, live statuses */}
         <SeatMatrixGrid
           locationTitle={`Level 1 ${roomName}`}
-          totalSeatsBadge="400+ SEATS"
-          podSections={MOCK_POD_SECTIONS}
+          totalSeatsBadge={totalSeatsBadge}
+          podSections={podSections}
           selectedSeatId={selectedSeat?._id || null}
           onSelectSeat={handleSelectSeat}
         />

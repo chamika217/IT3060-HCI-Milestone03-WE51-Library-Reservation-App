@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -15,13 +16,25 @@ export const SeatBottomNav: React.FC<SeatBottomNavProps> = ({
   activeTab = 'Search',
   onTabPress,
 }) => {
+  const router = useRouter();
+
   const tabs: { name: TabName; icon: keyof typeof Ionicons.glyphMap; activeIcon: keyof typeof Ionicons.glyphMap }[] = [
-    { name: 'Home', icon: 'home-outline', activeIcon: 'home' },
-    { name: 'Search', icon: 'search-outline', activeIcon: 'search' },
-    { name: 'Bookings', icon: 'calendar-outline', activeIcon: 'calendar' },
-    { name: 'Alerts', icon: 'notifications-outline', activeIcon: 'notifications' },
-    { name: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+    { name: 'Home',     icon: 'home-outline',          activeIcon: 'home' },
+    { name: 'Search',   icon: 'search-outline',        activeIcon: 'search' },
+    { name: 'Bookings', icon: 'calendar-outline',      activeIcon: 'calendar' },
+    { name: 'Alerts',   icon: 'notifications-outline', activeIcon: 'notifications' },
+    { name: 'Profile',  icon: 'person-outline',        activeIcon: 'person' },
   ];
+
+  const handlePress = (tab: TabName) => {
+    // Always navigate to Reading Rooms when Home is tapped
+    if (tab === 'Home') {
+      router.push('/seats');
+      onTabPress?.(tab);
+      return;
+    }
+    onTabPress?.(tab);
+  };
 
   return (
     <View style={styles.container}>
@@ -33,7 +46,7 @@ export const SeatBottomNav: React.FC<SeatBottomNavProps> = ({
           <TouchableOpacity
             key={tab.name}
             style={styles.tabItem}
-            onPress={() => onTabPress?.(tab.name)}
+            onPress={() => handlePress(tab.name)}
             activeOpacity={0.7}
           >
             <Ionicons

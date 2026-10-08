@@ -88,3 +88,19 @@ export interface ReservationItem {
   startsInLabel?: string;
   deskDeliveryBook?: string;
 }
+
+/**
+ * A confirmed booking record stored in the global BookingStore.
+ * roomCode  — identifies which room the seat belongs to (e.g. "L2-NORTH")
+ * seatNumber — e.g. "B-14"
+ * slotId    — matches a LibrarySlotDef.id (e.g. "t-1030")
+ * dateOption — 'today' | 'tomorrow'
+ */
+export interface Booking {
+  id: string;          // unique booking id (timestamp-based)
+  roomCode: string;
+  seatNumber: string;
+  slotId: string;
+  dateOption: DateOption;
+  timeRange: string;
+}

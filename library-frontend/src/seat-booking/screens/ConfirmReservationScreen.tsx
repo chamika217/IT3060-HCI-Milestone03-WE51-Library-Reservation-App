@@ -18,6 +18,7 @@ import { SeatBottomNav, TabName } from '../components/SeatBottomNav';
 import { TimeSlotSelector } from '../components/TimeSlotSelector';
 import { Colors, Shadows } from '../constants/designSystem';
 import { getCalculatedTimeSlots } from '../mock/roomsData';
+import { useBookingStore } from '../store/bookingStore';
 import { BookItem, DateOption } from '../types/seatBooking';
 
 const BACKEND_RESERVATIONS_URL = 'http://localhost:5000/api/reservations';
@@ -27,11 +28,15 @@ export default function ConfirmReservationScreen() {
     seatNumber?: string;
     dateOption?: DateOption;
     roomName?: string;
+    roomCode?: string;
   }>();
 
   const seatNumber = params.seatNumber || 'B-14';
   const dateOption: DateOption = params.dateOption === 'tomorrow' ? 'tomorrow' : 'today';
   const roomName = params.roomName || 'Individual Study Area';
+  const roomCode = params.roomCode || 'L2-NORTH';
+
+  const { addBooking } = useBookingStore();
 
   const timeSlots = getCalculatedTimeSlots(dateOption);
   const initialValidSlotId =
@@ -92,6 +97,15 @@ export default function ConfirmReservationScreen() {
     }
 
     setSubmitting(false);
+
+    // Record the booking in the shared store so occupancy updates live
+    addBooking({
+      roomCode,
+      seatNumber,
+      slotId: selectedSlotId,
+      dateOption,
+      timeRange: selectedSlot?.timeRange || '02:30 PM – 04:30 PM',
+    });
 
     Alert.alert(
       'Reservation Confirmed! 🎉',
