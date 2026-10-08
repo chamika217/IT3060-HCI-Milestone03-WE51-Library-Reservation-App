@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Shadows } from '../constants/designSystem';
 
@@ -17,8 +18,13 @@ export const SeatBottomNav: React.FC<SeatBottomNavProps> = ({
   onTabPress,
 }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-  const tabs: { name: TabName; icon: keyof typeof Ionicons.glyphMap; activeIcon: keyof typeof Ionicons.glyphMap }[] = [
+  const tabs: {
+    name: TabName;
+    icon: keyof typeof Ionicons.glyphMap;
+    activeIcon: keyof typeof Ionicons.glyphMap;
+  }[] = [
     { name: 'Home',     icon: 'home-outline',          activeIcon: 'home' },
     { name: 'Search',   icon: 'search-outline',        activeIcon: 'search' },
     { name: 'Bookings', icon: 'calendar-outline',      activeIcon: 'calendar' },
@@ -27,7 +33,6 @@ export const SeatBottomNav: React.FC<SeatBottomNavProps> = ({
   ];
 
   const handlePress = (tab: TabName) => {
-    // Always navigate to Reading Rooms when Home is tapped
     if (tab === 'Home') {
       router.push('/seats');
       onTabPress?.(tab);
@@ -37,7 +42,15 @@ export const SeatBottomNav: React.FC<SeatBottomNavProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        // Push the visible bar above the system gesture / home-indicator area.
+        // On devices with no bottom inset (e.g. Android with on-screen buttons
+        // already accounted for) insets.bottom is 0, so nothing changes.
+        { paddingBottom: Math.max(insets.bottom, 8) },
+      ]}
+    >
       {tabs.map((tab) => {
         const isActive = tab.name === activeTab;
         const iconName = isActive ? tab.activeIcon : tab.icon;
@@ -72,19 +85,20 @@ export const SeatBottomNav: React.FC<SeatBottomNavProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    height: 64,
+    // No fixed height — let paddingTop + content + paddingBottom (inset) size it.
+    paddingTop: 10,
     backgroundColor: Colors.card,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingBottom: 4,
     ...Shadows.card,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
+    paddingBottom: 2,
   },
   tabLabel: {
     fontSize: 11,
