@@ -8,11 +8,17 @@ not used. The optional Google config plugin configures the iOS URL scheme only.
 
 The Android package is `com.librareserve.app`. The provided SHA-1 fingerprint
 matches this project's `android/app/debug.keystore`, and the frontend and
-backend Web client IDs are configured to match.
+backend Web client IDs are configured to match. EAS has a separate development
+signing key, so Google Cloud also needs an Android OAuth client for its
+fingerprint:
 
-1. In Google Cloud, confirm the Android OAuth client uses package
-   `com.librareserve.app` and SHA-1
-   `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`.
+`4C:12:8D:71:67:87:CE:6A:04:6C:27:26:72:35:CF:0E:FE:F9:E2:EC`
+
+1. In Google Cloud, create an Android OAuth client for package
+   `com.librareserve.app` and the EAS SHA-1 above. Keep the existing Android
+   client for the debug keystore SHA-1
+   `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25` if you also
+   use local debug builds.
 2. From this directory, sign in with `npx.cmd eas-cli@latest login`, then link
    the project with `npx.cmd eas-cli@latest init`. With dynamic app config,
    persist the returned project ID in `expo.extra.eas.projectId` in app.json
