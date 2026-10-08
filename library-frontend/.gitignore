@@ -42,3 +42,8 @@ example
 # generated native folders
 /ios
 /android
+
+# Local Gradle cache used for Android builds
+.gradle-home/
+# Temporary hardcoded test credentials — never commit real tokens
+src/constants/testAuth.ts
