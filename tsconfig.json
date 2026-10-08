@@ -1,5 +1,17 @@
 {
   "extends": "./library-frontend/tsconfig.json",
+  "extends": "./library-frontend/node_modules/expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@/assets/*": [
+        "./assets/*"
+      ]
+    }
+  },
   "include": [
     "library-frontend/**/*.ts",
     "library-frontend/**/*.tsx"
