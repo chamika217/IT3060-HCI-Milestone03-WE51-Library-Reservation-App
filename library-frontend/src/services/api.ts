@@ -33,12 +33,20 @@ import { TEST_EMAIL, TEST_PASSWORD } from '@/constants/testAuth';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-export const API_BASE_URL = 'http://localhost:5000/api';
-// ↑ IMPORTANT: When testing on a physical device via Expo Go, change
-//   'localhost' to your development machine's LAN IP address.
-//   Expo Go runs on the phone — it cannot resolve 'localhost' to your laptop.
-//   Example: 'http://192.168.1.42:5000/api'
-//   Find your LAN IP: Windows → run `ipconfig`, look for "IPv4 Address".
+import { Platform } from 'react-native';
+
+// ── API Base URL ──────────────────────────────────────────────────────────────
+// • Web / simulator : localhost works fine
+// • Physical device via Expo Go : must use the laptop's LAN IP because the
+//   phone cannot resolve 'localhost' to the dev machine.
+//   Update DEV_MACHINE_IP to your current LAN IP when doing device testing.
+//   Windows: run `ipconfig` → look for "IPv4 Address" under Wi-Fi.
+const DEV_MACHINE_IP = '192.168.1.40';
+
+export const API_BASE_URL =
+  Platform.OS === 'web'
+    ? 'http://localhost:5000/api'
+    : `http://${DEV_MACHINE_IP}:5000/api`;
 
 // ─── Auth state ───────────────────────────────────────────────────────────────
 
