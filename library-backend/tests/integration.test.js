@@ -16,16 +16,16 @@ test('real database: accounts, concurrent holds, ownership, persistence, session
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = 'http://127.0.0.1:' + server.address().port + '/api';
   async function request(route, method='GET', body, token) { const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); return { status: response.status, data: await response.json() }; }
-  const details = { name: 'Test Reader', email: 'reader@example.edu', studentId: 'S001', department: 'Computing', password: 'correct-horse-123', acceptedTerms: true };
+  const details = { name: 'Test Reader', email: 'reader@gmail.com', studentId: '2026100001', department: 'Computing', password: 'Correct-horse-123', acceptedTerms: true };
   assert.equal((await request('/health')).status, 200);
   assert.equal((await request('/auth/register','POST',{...details,acceptedTerms:false})).status,400);
   const first = await request('/auth/register','POST',details); assert.equal(first.status,201); assert.ok(first.data.token); assert.equal(first.data.user.passwordHash,undefined);
   const stored = await User.findOne({email: details.email}).select('+passwordHash'); assert.notEqual(stored.passwordHash,details.password); assert.ok(stored.passwordHash.startsWith('$2'));
   assert.equal((await request('/auth/register','POST',details)).status,409);
   assert.equal((await request('/auth/login','POST',{email: details.email,password:'incorrect-pass'})).status,401);
-  const login = await request('/auth/login','POST',{email:'READER@EXAMPLE.EDU',password: details.password}); assert.equal(login.status,200);
+  const login = await request('/auth/login','POST',{email:'READER@GMAIL.COM',password: details.password}); assert.equal(login.status,200);
   assert.equal((await request('/auth/me','GET',null,login.data.token)).data.user.name,details.name);
-  const second = await request('/auth/register','POST',{...details,email:'second@example.edu',studentId:'S002'}); assert.equal(second.status,201);
+  const second = await request('/auth/register','POST',{...details,email:'second@gmail.com',studentId:'2026100002'}); assert.equal(second.status,201);
   const catalogue = await request('/books'); assert.equal(catalogue.data.books.length,20); assert.equal(catalogue.data.books[0].reservations,undefined);
   assert.equal((await request('/books?q=Clean%20Architecture')).data.books.length,1);
   assert.equal((await request('/books/missing')).status,404);

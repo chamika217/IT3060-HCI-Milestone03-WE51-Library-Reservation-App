@@ -6,8 +6,9 @@ const Book = require('../models/Book');
 const controller = require('../controllers/reservations');
 const seed = require('../data/books.json');
 test('catalogue has 20 unique detailed books and never exposes reservations', () => {
-  assert.equal(seed.length, 20); assert.equal(new Set(seed.map(b => b.id)).size, 20);
-  assert.ok(seed.every(b => b.title && b.author && b.description));
+  const catalogue = seed.filter(book => Number(book.id) >= 1 && Number(book.id) <= 20);
+  assert.equal(catalogue.length, 20); assert.equal(new Set(catalogue.map(b => b.id)).size, 20);
+  assert.ok(catalogue.every(b => b.title && b.author && b.description));
   assert.equal(publicBook({ ...seed[0], _id: '1', reservations: [{ userId: 'private' }] }).reservations, undefined);
 });
 test('pickup validation rejects invalid dates, past dates and invalid windows', () => {
@@ -20,25 +21,26 @@ test('pickup validation rejects invalid dates, past dates and invalid windows', 
 });
 test('reservation atomically checks stock and user, and reports conflicts', async t => {
   let captured;
-  t.mock.method(Book, 'findOneAndUpdate', (filter, update) => {
-    captured = { filter, update }; return { lean: async () => null };
+  t.mock.method(Book.collection, 'findOneAndUpdate', async (filter, update) => {
+    captured = { filter, update }; return null;
   });
+  t.mock.method(Book.collection, 'findOne', async () => ({ copies: 0, reservations: [] }));
   const res = { status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
-  await controller.create({ userId: 'reader-a', body: { bookId: '1', pickupDate: today(), pickupWindow: '9-11 AM' } }, res);
+  await controller.create({ userId: 'reader-a', body: { bookId: '6', pickupDate: today(), pickupWindow: '9-11 AM' } }, res);
   assert.equal(res.code, 409);
   assert.deepEqual(captured.filter.copies, { $gt: 0 });
   assert.deepEqual(captured.filter['reservations.userId'], { $ne: 'reader-a' });
-  assert.equal(captured.update.$inc.copies, -1);
-  assert.equal(captured.update.$push.reservations.userId, 'reader-a');
+  assert.deepEqual(captured.update[0].$set.copies, { $subtract: ['$copies', 1] });
+  assert.deepEqual(captured.update[0].$set.reservations.$concatArrays[1][0].userId, 'reader-a');
 });
 test('cancellation matches the owner and restores stock only on a matching reservation', async t => {
   let captured;
-  t.mock.method(Book, 'updateOne', async (filter, update) => { captured = { filter, update }; return { modifiedCount: 0 }; });
+  t.mock.method(Book.collection, 'updateOne', async (filter, update) => { captured = { filter, update }; return { modifiedCount: 0 }; });
   const res = { status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
   await controller.cancel({ userId: 'reader-b', params: { id: 'hold-1' } }, res);
   assert.equal(res.code, 404);
   assert.deepEqual(captured.filter.reservations.$elemMatch, { _id: 'hold-1', userId: 'reader-b' });
-  assert.equal(captured.update.$inc.copies, 1);
+  assert.deepEqual(captured.update[0].$set.copies, { $add: ['$copies', 1] });
 });
 
 test('HTTP API rejects missing identities and accepts only an active session', async t => {

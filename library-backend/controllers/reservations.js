@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Book = require('../models/Book');
 const { publicBook } = require('../services/catalogue');
 const { validPickup } = require('../services/pickup');
+const createNotificationEvent = require('../services/notification-events');
 exports.list = async (req, res) => {
   const books = await Book.find({ 'reservations.userId': req.userId }).select('+reservations').lean();
   res.json({ reservations: books.flatMap(b => b.reservations.filter(r => r.userId === req.userId).map(r => ({
@@ -43,6 +44,14 @@ exports.create = async (req, res) => {
     if (!(Number(current.copies) > 0)) return res.status(409).json({ message: 'No copies are currently available. Please check back later.' });
     return res.status(409).json({ message: 'Availability just changed. Refresh the catalogue and try again.' });
   }
+  await createNotificationEvent({
+    userId: req.userId,
+    type: 'system',
+    status: 'info',
+    title: 'Book reservation confirmed',
+    subtitle: book.title,
+    detail: { body: `Your pickup is scheduled for ${pickupDate} (${pickupWindow}). Confirmation code: ${reservation.pickupCode}.` },
+  });
   res.status(201).json({ reservation: { ...publicBook(book), reservationId: reservation._id, pickupDate, pickupWindow, pickupCode: reservation.pickupCode } });
 };
 exports.update = async (req, res) => {
@@ -56,6 +65,14 @@ exports.update = async (req, res) => {
   );
   if (!book) return res.status(404).json({ message: 'Reservation not found.' });
   const reservation = book.reservations.find(item => item._id === req.params.id && item.userId === req.userId);
+  await createNotificationEvent({
+    userId: req.userId,
+    type: 'system',
+    status: 'info',
+    title: 'Book pickup time updated',
+    subtitle: book.title,
+    detail: { body: `Your pickup is now scheduled for ${pickupDate} (${pickupWindow}).` },
+  });
   res.json({ reservation: { ...publicBook(book), reservationId: reservation._id, pickupDate: reservation.pickupDate, pickupWindow: reservation.pickupWindow, pickupCode: reservation.pickupCode } });
 };
 exports.cancel = async (req, res) => {
@@ -76,5 +93,12 @@ exports.cancel = async (req, res) => {
     } }],
   );
   if (!result.modifiedCount) return res.status(404).json({ message: 'Reservation not found.' });
+  await createNotificationEvent({
+    userId: req.userId,
+    type: 'system',
+    status: 'info',
+    title: 'Book reservation cancelled',
+    detail: { body: 'Your book reservation has been cancelled and the copy is available again.' },
+  });
   res.json({ ok: true });
 };

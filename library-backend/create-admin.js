@@ -1,5 +1,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+mongoose.set('autoIndex', false);
+
 const bcrypt = require('bcryptjs');
 const User = require('./models/User');
 
@@ -12,31 +14,28 @@ async function ensureAdmin() {
   }
 
   await mongoose.connect(process.env.MONGODB_URI);
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
   const existing = await User.findOne({ email: adminEmail });
 
   if (existing) {
-    const needsUpdate = existing.role !== 'Admin' || existing.status !== 'Active';
-
-    if (needsUpdate) {
-      existing.role = 'Admin';
-      existing.status = 'Active';
-      await existing.save();
-      console.log(`Existing account for ${adminEmail} was updated to Admin role.`);
-    } else {
-      console.log(`Admin account already exists for ${adminEmail}; no duplicate was created.`);
-    }
+    existing.role = 'Admin';
+    existing.status = 'Active';
+    existing.password = hashedPassword;
+    existing.passwordHash = hashedPassword;
+    await existing.save();
+    console.log(`Existing account for ${adminEmail} was updated to Admin role.`);
 
     await mongoose.disconnect();
     return;
   }
 
-  const hashedPassword = await bcrypt.hash(adminPassword, 10);
-
   await User.create({
     name: 'Library Admin',
     email: adminEmail,
+    studentId: 'ADMIN-000001',
     password: hashedPassword,
+    passwordHash: hashedPassword,
     role: 'Admin',
     status: 'Active',
   });

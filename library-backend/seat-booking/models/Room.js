@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
-const roomSchema = new mongoose.Schema(
-  {
+const roomSchema = new mongoose.Schema({
     code: { type: String, required: true, unique: true, trim: true },
     name: { type: String, required: true, trim: true },
     level: { type: Number, required: true },
@@ -19,8 +18,7 @@ const roomSchema = new mongoose.Schema(
     iconName: { type: String },
     statusType: { type: String, enum: ['open', 'normal', 'crowded'], default: 'open' },
     isActive: { type: Boolean, default: true },
-  },
-  { timestamps: true, collection: 'sb_rooms' }
-);
+}, { timestamps: true, collection: 'sb_rooms' });
 
-module.exports = mongoose.model('Room', roomSchema);
+module.exports = mongoose.models.SeatBookingRoom
+  || mongoose.model('SeatBookingRoom', roomSchema);

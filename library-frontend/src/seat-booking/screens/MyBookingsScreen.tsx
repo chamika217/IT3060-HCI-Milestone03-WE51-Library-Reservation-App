@@ -20,8 +20,9 @@ import { Colors, Shadows } from '../constants/designSystem';
 import { ALL_LIBRARY_SLOTS, MOCK_ROOMS } from '../mock/roomsData';
 import { useBookingStore } from '../store/bookingStore';
 import { Booking, ReservationItem } from '../types/seatBooking';
+import { API_BASE_URL } from '@/services/books-api';
 
-const BACKEND_CANCEL_URL = 'http://localhost:5000/api/reservations';
+const BACKEND_CANCEL_URL = `${API_BASE_URL}/seat-reservations`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper — convert a store Booking into the shape ReservationCard expects

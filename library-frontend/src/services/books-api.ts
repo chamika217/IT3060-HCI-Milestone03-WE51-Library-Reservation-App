@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { resolveApiUrl } from './api-url';
 import type { Book, Reservation } from '@/types/book';
-const base = resolveApiUrl(process.env.EXPO_PUBLIC_API_URL, Platform.OS, __DEV__, Constants.expoConfig?.hostUri);
+export const API_BASE_URL = resolveApiUrl(process.env.EXPO_PUBLIC_API_URL, Platform.OS, __DEV__, Constants.expoConfig?.hostUri);
 let sessionToken: string | null = null;
 // Call after login; clear on logout. The auth feature owns secure persistence.
 export function setBookSessionToken(token: string | null) { sessionToken = token; }
@@ -10,7 +10,7 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(base + path, { method, signal: controller.signal,
+    const response = await fetch(API_BASE_URL + path, { method, signal: controller.signal,
       headers: { 'Content-Type': 'application/json', ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}) });
     const data = await response.json().catch(() => ({ message: 'The server returned an invalid response.' }));

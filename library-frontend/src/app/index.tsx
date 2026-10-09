@@ -1,13 +1,9 @@
-export { default } from '../admin/AdminApp';
-import ReadingRoomsScreen from '@/seat-booking/screens/ReadingRoomsScreen';
-
-export default function HomeScreen() {
-  return <ReadingRoomsScreen />;
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Button, u } from '@/components/library/ui';
 import AuthTemplate from '@/components/library/AuthTemplate';
 import { palette as c } from '@/constants/design-system';
+
 export default function Onboarding() {
   return (
     <AuthTemplate

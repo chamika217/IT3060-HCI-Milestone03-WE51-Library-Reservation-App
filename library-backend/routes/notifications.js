@@ -11,6 +11,14 @@ router.use(auth);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function ownsUser(req, res, userId) {
+  if (String(userId) !== String(req.userId)) {
+    res.status(403).json({ message: 'You can only access your own notifications.' });
+    return false;
+  }
+  return true;
+}
+
 /**
  * Map backend type + status + isRead to the shape the frontend expects.
  * Frontend NotificationType: hold_ready | seat_expiring | seat_released | system_info
@@ -65,8 +73,9 @@ router.get('/:userId', async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: 'Invalid userId.' });
     }
+    if (!ownsUser(req, res, userId)) return;
 
-    const filter = { userId };
+    const filter = { userId: req.userId };
     if (req.query.type) {
       if (!['book', 'seat', 'system'].includes(req.query.type)) {
         return res.status(400).json({ message: 'type must be book, seat, or system.' });
@@ -89,7 +98,7 @@ router.get('/detail/:id', async (req, res) => {
       return res.status(400).json({ message: 'Invalid notification id.' });
     }
 
-    const n = await Notification.findById(req.params.id);
+    const n = await Notification.findOne({ _id: req.params.id, userId: req.userId });
     if (!n) return res.status(404).json({ message: 'Notification not found.' });
 
     return res.json(toClientShape(n));
@@ -108,6 +117,7 @@ router.post('/', async (req, res) => {
     if (!userId || !type || !title) {
       return res.status(400).json({ message: 'userId, type and title are required.' });
     }
+    if (!ownsUser(req, res, userId)) return;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: 'Invalid userId.' });
@@ -134,8 +144,8 @@ router.put('/:id/read', async (req, res) => {
       return res.status(400).json({ message: 'Invalid notification id.' });
     }
 
-    const n = await Notification.findByIdAndUpdate(
-      req.params.id,
+    const n = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
       { $set: { isRead: true } },
       { new: true },
     );
@@ -155,8 +165,8 @@ router.put('/:id/unread', async (req, res) => {
       return res.status(400).json({ message: 'Invalid notification id.' });
     }
 
-    const n = await Notification.findByIdAndUpdate(
-      req.params.id,
+    const n = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
       { $set: { isRead: false } },
       { new: true },
     );
@@ -176,9 +186,10 @@ router.put('/:userId/read-all', async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: 'Invalid userId.' });
     }
+    if (!ownsUser(req, res, userId)) return;
 
     const result = await Notification.updateMany(
-      { userId, isRead: false },
+      { userId: req.userId, isRead: false },
       { $set: { isRead: true } },
     );
 
@@ -199,7 +210,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Invalid notification id.' });
     }
 
-    const n = await Notification.findByIdAndDelete(req.params.id);
+    const n = await Notification.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!n) return res.status(404).json({ message: 'Notification not found.' });
 
     return res.json({ message: 'Notification deleted.' });

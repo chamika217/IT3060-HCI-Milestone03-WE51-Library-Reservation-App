@@ -1,11 +1,27 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
-module.exports = mongoose.models.Reservation || mongoose.model('Reservation', new Schema({
+
+const reservationSchema = new Schema({
   user: { type: Schema.Types.ObjectId, ref: 'User' },
-  type: { type: String, enum: ['Book', 'Seat'], required: true },
-  book: { type: Schema.Types.ObjectId, ref: 'Book' },
+  userId: { type: String },
+  type: { type: String, enum: ['Book', 'Seat', 'book', 'seat'] },
+  book: { type: Schema.Types.Mixed, ref: 'Book' },
   seat: { type: Schema.Types.ObjectId, ref: 'Seat' },
-  status: { type: String, enum: ['Pending', 'Confirmed', 'Cancelled', 'Completed'], default: 'Pending' },
+  // Admin reservation states and lowercase seat-booking lifecycle states coexist.
+  status: {
+    type: String,
+    enum: [
+      'Pending', 'Confirmed', 'Cancelled', 'Completed',
+      'reserved', 'checked-in', 'completed', 'cancelled', 'released', 'no-show',
+    ],
+    default: 'Pending',
+  },
   startTime: { type: Date, default: Date.now },
   endTime: { type: Date },
-}, { timestamps: true }));
+  // Book holds use pickup windows; seat reservations use startTime/endTime.
+  pickupDate: { type: String },
+  pickupWindow: { type: String },
+  pickupCode: { type: String },
+}, { timestamps: true });
+
+module.exports = mongoose.models.Reservation || mongoose.model('Reservation', reservationSchema);

@@ -81,6 +81,21 @@ export default function Login() {
           <Text style={u.title}>Welcome back.</Text>
           <Text style={u.body}>Your next great read is waiting. Sign in to continue.</Text>
         </View>
+        <Pressable
+          onPress={() => router.push('/admin-panel')}
+          accessibilityRole="link"
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            backgroundColor: c.primarySoft,
+            borderWidth: 1,
+            borderColor: c.border,
+          }}
+        >
+          <Text style={[u.link, { color: c.primary, textAlign: 'center' }]}>
+            Administrator? Open admin sign-in
+          </Text>
+        </Pressable>
         <Field label="EMAIL ADDRESS" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" placeholder="you@university.edu" style={{ backgroundColor: c.primarySoft, minHeight: 54, paddingVertical: 16 }} />
         <Field label="PASSWORD" value={password} onChangeText={value => { setPassword(value); setError(''); }} secureTextEntry={!visible} autoComplete="current-password" placeholder="Enter your password" style={{ backgroundColor: c.primarySoft, minHeight: 54, paddingVertical: 16 }} />
         {!!passwordValidation && <Message error>{passwordValidation}</Message>}

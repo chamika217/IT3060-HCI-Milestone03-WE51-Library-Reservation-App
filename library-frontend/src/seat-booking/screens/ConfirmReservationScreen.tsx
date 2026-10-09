@@ -20,8 +20,9 @@ import { Colors, Shadows } from '../constants/designSystem';
 import { getCalculatedTimeSlots } from '../mock/roomsData';
 import { useBookingStore } from '../store/bookingStore';
 import { BookItem, DateOption } from '../types/seatBooking';
+import { API_BASE_URL } from '@/services/books-api';
 
-const BACKEND_RESERVATIONS_URL = 'http://localhost:5000/api/reservations';
+const BACKEND_RESERVATIONS_URL = `${API_BASE_URL}/seat-reservations`;
 
 export default function ConfirmReservationScreen() {
   const params = useLocalSearchParams<{

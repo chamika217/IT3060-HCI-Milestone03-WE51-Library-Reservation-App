@@ -21,8 +21,9 @@ import { Colors } from '../constants/designSystem';
 import { CATEGORY_TABS, MOCK_ROOMS } from '../mock/roomsData';
 import { useBookingStore } from '../store/bookingStore';
 import { CampusDensity, Room, RoomCategory } from '../types/seatBooking';
+import { API_BASE_URL } from '@/services/books-api';
 
-const BACKEND_URL = 'http://localhost:5000/api/rooms';
+const BACKEND_URL = `${API_BASE_URL}/rooms`;
 
 export default function ReadingRoomsScreen() {
   const { getOccupiedCount } = useBookingStore();

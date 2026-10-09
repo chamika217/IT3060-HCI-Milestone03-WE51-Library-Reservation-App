@@ -54,7 +54,7 @@ export default function AdminLogin({ nav }: any) {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
-            placeholder="admin@library.com"
+            placeholder="admin@example.com"
             leftIcon="mail-outline"
           />
 
