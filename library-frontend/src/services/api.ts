@@ -10,14 +10,10 @@
  *       Windows → ipconfig  (look for IPv4 Address)
  *       Mac/Linux → ifconfig | grep "inet "
  *
- * Auth:
- *   initAuth() is called automatically on the first request that needs a userId.
- *   It logs in with TEST_EMAIL/TEST_PASSWORD, caches the token + userId, and
- *   never needs updating when seed.js re-creates the user.
- *   Once a real login screen exists, replace initAuth() with setAuthToken().
+ * Requests use the active sign-in token shared with the book API client.
  */
 
-import {
+import type {
   Notification,
   ApiUserProfile,
   ApiNotificationPreferences,
@@ -28,77 +24,46 @@ import {
   AuthResponse,
   LoginPayload,
   RegisterPayload,
+  ApiFaqFeedback,
+  FaqFeedbackPayload,
 } from '@/features/notifications/types';
-import { TEST_EMAIL, TEST_PASSWORD } from '@/constants/testAuth';
+import { API_BASE_URL as SHARED_API_BASE_URL, setBookSessionToken } from './books-api';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-import { Platform } from 'react-native';
-
-// ── API Base URL ──────────────────────────────────────────────────────────────
-// • Web / simulator : localhost works fine
-// • Physical device via Expo Go : must use the laptop's LAN IP because the
-//   phone cannot resolve 'localhost' to the dev machine.
-//   Update DEV_MACHINE_IP to your current LAN IP when doing device testing.
-//   Windows: run `ipconfig` → look for "IPv4 Address" under Wi-Fi.
-const DEV_MACHINE_IP = '192.168.1.40';
-
-export const API_BASE_URL =
-  Platform.OS === 'web'
-    ? 'http://localhost:5000/api'
-    : `http://${DEV_MACHINE_IP}:5000/api`;
+export const API_BASE_URL = SHARED_API_BASE_URL;
+// ↑ IMPORTANT: When testing on a physical device via Expo Go, change
+//   'localhost' to your development machine's LAN IP address.
+//   Expo Go runs on the phone — it cannot resolve 'localhost' to your laptop.
+//   Example: 'http://192.168.1.42:5000/api'
+//   Find your LAN IP: Windows → run `ipconfig`, look for "IPv4 Address".
 
 // ─── Auth state ───────────────────────────────────────────────────────────────
 
 let _authToken: string | null = null;
 let _userId:    string | null = null;
-let _initPromise: Promise<void> | null = null;
 
 /**
- * initAuth — logs in with test credentials and caches token + userId.
- * Called automatically; safe to call multiple times (runs only once).
- * Re-runs if the token is cleared (e.g. after sign-out).
- */
-async function initAuth(): Promise<void> {
-  if (_authToken && _userId) return; // already initialised
-  if (_initPromise) return _initPromise; // in-flight — wait for it
-
-  _initPromise = (async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
-      });
-      const data = await res.json() as AuthResponse;
-      if (!res.ok) throw new Error((data as { message?: string }).message ?? 'Login failed');
-      _authToken = data.token;
-      _userId    = String(data.user.id);
-    } finally {
-      _initPromise = null; // allow retry on failure
-    }
-  })();
-
-  return _initPromise;
-}
-
-/**
- * getAuthUserId — returns the cached userId, auto-logging in if needed.
- * Use this in every screen instead of TEST_USER_ID.
+ * Resolve the signed-in user's id using the current app session.
  */
 export async function getAuthUserId(): Promise<string> {
-  await initAuth();
-  if (!_userId) throw new Error('Could not determine user ID after login.');
+  if (!_userId) {
+    const result = await request<{ user: { id: string } }>('/auth/me');
+    _userId = result.user.id;
+  }
   return _userId;
 }
 
-export function setAuthToken(token: string) {
+export function setAuthToken(token: string, userId?: string) {
   _authToken = token;
+  _userId = userId ?? null;
+  setBookSessionToken(token);
 }
 
 export function clearAuthToken() {
   _authToken = null;
   _userId    = null;
+  setBookSessionToken(null);
 }
 
 // ─── Core fetch helper ────────────────────────────────────────────────────────
@@ -107,9 +72,6 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  // Ensure we have a token before making any authenticated request
-  await initAuth();
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined),
@@ -284,11 +246,6 @@ export async function getContactMessages(
 ): Promise<ApiContactMessage[]> {
   return request<ApiContactMessage[]>(`/contact/${userId}`);
 }
-
-import {
-  ApiFaqFeedback,
-  FaqFeedbackPayload,
-} from '@/features/notifications/types';
 
 // ─── Notifications — new CRUD operations ─────────────────────────────────────
 

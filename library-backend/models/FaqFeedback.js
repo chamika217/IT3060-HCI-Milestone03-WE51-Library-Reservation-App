@@ -20,4 +20,4 @@ const faqFeedbackSchema = new mongoose.Schema({
 // One rating per user per FAQ
 faqFeedbackSchema.index({ userId: 1, faqId: 1 }, { unique: true });
 
-module.exports = mongoose.model('FaqFeedback', faqFeedbackSchema);
+module.exports = mongoose.models.FaqFeedback || mongoose.model('FaqFeedback', faqFeedbackSchema);

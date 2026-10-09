@@ -31,6 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
@@ -42,5 +43,7 @@ example
 /ios
 /android
 
+# Local Gradle cache used for Android builds
+.gradle-home/
 # Temporary hardcoded test credentials — never commit real tokens
 src/constants/testAuth.ts

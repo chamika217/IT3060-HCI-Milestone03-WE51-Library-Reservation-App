@@ -25,6 +25,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
@@ -37,6 +38,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c3bcbdc3-b2ad-422f-95a6-465b53f6a221"
+      }
+    },
+    "owner": "sasangi"
   }
 }

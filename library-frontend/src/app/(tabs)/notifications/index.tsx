@@ -1,909 +1,195 @@
-/**
- * Screen 1 — Notifications List  (+ empty state)
- * Route: /(tabs)/notifications/
- *
- * Data: real API via getNotifications().
- * CRUD: Read (list), Update (mark read/unread), Delete (with undo toast)
- */
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Button, Card, Icon, Message, Screen, Section, u } from '@/components/library/ui';
+import { NotificationCard } from '@/components/notifications/NotificationCard';
+import type { Notification } from '@/features/notifications/types';
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from '@/services/api';
+import { useLibrary } from '@/state/library';
+import { palette as c } from '@/constants/design-system';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  ActionSheetIOS,
-  Alert,
-  Platform,
-  Animated,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-
-import {
-  NotificationCard,
-  BottomNavBar,
-  IonIcon,
-  StatusBadge,
-} from '@/components/notifications';
-import { filterByTab, getUnreadCount } from '@/features/notifications/mockData';
-import { Notification } from '@/features/notifications/types';
-import {
-  getNotifications,
-  markNotificationRead,
-  markNotificationUnread,
-  markAllNotificationsRead,
-  deleteNotification,
-  getAuthUserId,
-} from '@/services/api';
-
-// ─── Filter tab type ──────────────────────────────────────────────────────────
-
-type FilterTab = 'all' | 'books' | 'seats' | 'system';
-
-const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: 'all',    label: 'All'    },
-  { key: 'books',  label: 'Books'  },
-  { key: 'seats',  label: 'Seats'  },
+type FilterKey = 'all' | 'books' | 'seats' | 'system';
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'books', label: 'Books' },
+  { key: 'seats', label: 'Seats' },
   { key: 'system', label: 'System' },
 ];
 
-// ─── Undo Toast ───────────────────────────────────────────────────────────────
-
-interface ToastState {
-  visible: boolean;
-  notificationId: string;
-  title: string;
-}
-
-function UndoToast({
-  state,
-  onUndo,
-  onDismiss,
-}: {
-  state: ToastState;
-  onUndo: () => void;
-  onDismiss: () => void;
-}) {
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (state.visible) {
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.delay(2800),
-        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start(() => onDismiss());
-    }
-  }, [state.visible, state.notificationId]);
-
-  if (!state.visible) return null;
-
-  return (
-    <Animated.View style={[toastStyles.toast, { opacity }]}>
-      <Text style={toastStyles.text} numberOfLines={1}>
-        Notification deleted
-      </Text>
-      <Pressable onPress={onUndo} style={toastStyles.undoBtn} accessibilityRole="button">
-        <Text style={toastStyles.undoText}>Undo</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-const toastStyles = StyleSheet.create({
-  toast: {
-    position: 'absolute',
-    bottom: 90,
-    left: 16,
-    right: 16,
-    backgroundColor: '#1C283B',
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 12,
-    zIndex: 999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  text:     { flex: 1, color: '#FAFBFB', fontSize: 13, fontWeight: '500' },
-  undoBtn:  { paddingHorizontal: 8, paddingVertical: 4 },
-  undoText: { color: '#2D7CE9', fontSize: 13, fontWeight: '700' },
-});
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
-
-export default function NotificationsScreen() {
-  const insets = useSafeAreaInsets();
-
+export default function Notifications() {
+  const { user } = useLibrary();
+  const userId = user?.id;
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [activeTab,     setActiveTab]     = useState<FilterTab>('all');
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<FilterKey>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Undo toast state
-  const [toast, setToast] = useState<ToastState>({
-    visible: false, notificationId: '', title: '',
-  });
-  // Timer ref to defer the actual delete until undo window closes
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Snapshot before optimistic delete — used for rollback
-  const deletedItemRef = useRef<{ item: Notification; index: number } | null>(null);
+  const loadNotifications = useCallback(async () => {
+    if (!userId) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
 
-  // ── Fetch ──────────────────────────────────────────────────────────────
-  const fetchNotifications = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
-      const uid = await getAuthUserId();
-      const data = await getNotifications(uid);
-      setNotifications(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load notifications.');
+      setNotifications(await getNotifications(userId));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load notifications.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+  useFocusEffect(useCallback(() => {
+    void loadNotifications();
+  }, [loadNotifications]));
 
-  const unreadCount = getUnreadCount(notifications);
-  const filtered    = filterByTab(notifications, activeTab);
-
-  const counts: Record<FilterTab, number> = {
-    all:    notifications.length,
-    books:  filterByTab(notifications, 'books').length,
-    seats:  filterByTab(notifications, 'seats').length,
-    system: filterByTab(notifications, 'system').length,
-  };
-
-  // ── Mark all read ──────────────────────────────────────────────────────
-  async function handleMarkAllRead() {
-    setNotifications((prev) => prev.map((n) => ({ ...n, status: 'read' as const })));
+  async function openNotification(notification: Notification) {
     try {
-      const uid = await getAuthUserId();
-      await markAllNotificationsRead(uid);
-    } catch {
-      fetchNotifications();
-    }
-  }
-
-  // ── Card tap ───────────────────────────────────────────────────────────
-  function handleCardPress(id: string) {
-    setNotifications((prev) =>
-      prev.map((n) => n.id === id ? { ...n, status: 'read' as const } : n),
-    );
-    markNotificationRead(String(id)).catch(() => {});
-    router.push(`/(tabs)/notifications/${id}` as never);
-  }
-
-  function handleQuickAction(id: string) {
-    console.log('Quick action for notification', id);
-  }
-
-  // ── Delete with undo ───────────────────────────────────────────────────
-  function initiateDelete(id: string) {
-    // Find item and its index before removing
-    const idx  = notifications.findIndex((n) => n.id === id);
-    const item = notifications[idx];
-    if (!item) return;
-
-    // Cancel any previous pending delete
-    if (deleteTimerRef.current) {
-      clearTimeout(deleteTimerRef.current);
-      // Commit the previous pending delete immediately if there was one
-      if (deletedItemRef.current) {
-        const prevId = deletedItemRef.current.item.id;
-        deleteNotification(String(prevId)).catch(() => {});
+      if (notification.status === 'unread') {
+        await markNotificationRead(notification.id);
+        setNotifications(current => current.map(item =>
+          item.id === notification.id ? { ...item, status: 'read' } : item,
+        ));
       }
-    }
-
-    // Snapshot for undo
-    deletedItemRef.current = { item, index: idx };
-
-    // Optimistic remove
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-
-    // Show toast
-    setToast({ visible: true, notificationId: id, title: item.title });
-
-    // Fire delete after 3 s unless undo is pressed
-    deleteTimerRef.current = setTimeout(async () => {
-      deleteTimerRef.current = null;
-      deletedItemRef.current = null;
-      try {
-        await deleteNotification(String(id));
-      } catch {
-        // If it fails, re-fetch to restore truth
-        fetchNotifications();
-      }
-    }, 3000);
-  }
-
-  function handleUndo() {
-    if (deleteTimerRef.current) {
-      clearTimeout(deleteTimerRef.current);
-      deleteTimerRef.current = null;
-    }
-    if (deletedItemRef.current) {
-      const { item, index } = deletedItemRef.current;
-      // Restore item at its original position
-      setNotifications((prev) => {
-        const next = [...prev];
-        next.splice(index, 0, item);
-        return next;
-      });
-      deletedItemRef.current = null;
-    }
-    setToast((t) => ({ ...t, visible: false }));
-  }
-
-  // ── Long-press action sheet ────────────────────────────────────────────
-  function handleLongPress(n: Notification) {
-    const actions = ['Delete', n.status === 'unread' ? 'Mark as read' : 'Mark as unread', 'Cancel'];
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: actions, cancelButtonIndex: 2, destructiveButtonIndex: 0 },
-        (idx) => {
-          if (idx === 0) initiateDelete(n.id);
-          if (idx === 1) handleToggleRead(n);
-        },
-      );
-    } else {
-      // Android / web — use Alert as a simple action sheet substitute
-      Alert.alert(
-        n.title,
-        'Choose an action',
-        [
-          { text: 'Delete', style: 'destructive', onPress: () => initiateDelete(n.id) },
-          {
-            text: n.status === 'unread' ? 'Mark as read' : 'Mark as unread',
-            onPress: () => handleToggleRead(n),
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ],
-      );
+      router.push({ pathname: '/(tabs)/notifications/[id]', params: { id: notification.id } });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not open this notification.');
     }
   }
 
-  function handleToggleRead(n: Notification) {
-    if (n.status === 'unread') {
-      setNotifications((prev) =>
-        prev.map((x) => x.id === n.id ? { ...x, status: 'read' as const } : x),
-      );
-      markNotificationRead(String(n.id)).catch(() => fetchNotifications());
-    } else {
-      setNotifications((prev) =>
-        prev.map((x) => x.id === n.id ? { ...x, status: 'unread' as const } : x),
-      );
-      markNotificationUnread(String(n.id)).catch(() => fetchNotifications());
+  async function markAllRead() {
+    if (!userId) return;
+    try {
+      await markAllNotificationsRead(userId);
+      setNotifications(current => current.map(item => ({ ...item, status: 'read' })));
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not update notifications.');
     }
   }
 
-  // ── Loading ────────────────────────────────────────────────────────────
-  if (loading) {
-
-    return (
-      <View style={styles.screen}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.heading}>Notifications</Text>
-              <Text style={styles.subheading}>Loading…</Text>
-            </View>
-          </View>
-        </View>
-        <View style={styles.centeredFill}>
-          <ActivityIndicator size="large" color="#2D7CE9" />
-        </View>
-        <BottomNavBar activeTab="alerts" unreadCount={0} />
-      </View>
-    );
-  }
-
-  // ── Error state ────────────────────────────────────────────────────────
-  if (error) {
-    return (
-      <View style={styles.screen}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <View style={styles.headerTop}>
-            <Text style={styles.heading}>Notifications</Text>
-          </View>
-        </View>
-        <View style={styles.centeredFill}>
-          <IonIcon name="alert-circle-outline" size={40} color="#F04F55" />
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable
-            onPress={fetchNotifications}
-            style={({ pressed }) => [styles.retryBtn, pressed && styles.pressed]}
-            accessibilityRole="button"
-          >
-            <Text style={styles.retryBtnText}>Try Again</Text>
-          </Pressable>
-        </View>
-        <BottomNavBar activeTab="alerts" unreadCount={0} />
-      </View>
-    );
-  }
-
-  const isEmpty = filtered.length === 0;
+  const unreadCount = notifications.filter(item => item.status === 'unread').length;
+  const filteredNotifications = notifications.filter(notification => {
+    if (selectedFilter === 'books') return notification.type === 'hold_ready';
+    if (selectedFilter === 'seats') return notification.type === 'seat_expiring' || notification.type === 'seat_released';
+    if (selectedFilter === 'system') return notification.type === 'system_info';
+    return true;
+  });
+  const countForFilter = (filter: FilterKey) => notifications.filter(notification => {
+    if (filter === 'books') return notification.type === 'hold_ready';
+    if (filter === 'seats') return notification.type === 'seat_expiring' || notification.type === 'seat_released';
+    if (filter === 'system') return notification.type === 'system_info';
+    return true;
+  }).length;
 
   return (
-    <View style={styles.screen}>
-      {/* ── Top header ─────────────────────────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.heading}>Notifications</Text>
-            {unreadCount > 0 ? (
-              <Text style={styles.subheading}>
-                {unreadCount} new alert{unreadCount !== 1 ? 's' : ''} today
-              </Text>
-            ) : (
-              <Text style={styles.subheading}>You're all caught up</Text>
-            )}
-          </View>
-          <Pressable
-            onPress={() => router.push('/(tabs)/notifications/preferences' as never)}
-            style={({ pressed }) => [styles.headerIcon, pressed && styles.pressed]}
-            accessibilityLabel="Notification preferences"
-            accessibilityRole="button"
-          >
-            <IonIcon name="filter" size={20} color="#2D7CE9" />
-          </Pressable>
-        </View>
-
-        {/* Filter tabs */}
-        <View style={styles.filterRow}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScroll}
-          >
-            {FILTER_TABS.map((tab) => {
-              const active = tab.key === activeTab;
+    <Screen
+      title="Notifications"
+      subtitle="LIBRARY UPDATES"
+      tab="alerts"
+      alertCount={unreadCount}
+      action={(
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Notification preferences"
+          onPress={() => router.push('/(tabs)/notifications/preferences')}
+          style={u.iconButton}
+        >
+          <Icon name="sliders" size={19} color={c.primary} />
+        </Pressable>
+      )}
+    >
+      {!userId ? (
+        <Card style={{ alignItems: 'center', paddingVertical: 30, gap: 12 }}>
+          <Icon name="bell" size={28} />
+          <Text style={u.heading}>Sign in to view your notifications</Text>
+          <Button onPress={() => router.push('/login')}>Sign in</Button>
+        </Card>
+      ) : (
+        <>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {FILTERS.map(filter => {
+              const selected = filter.key === selectedFilter;
               return (
                 <Pressable
-                  key={tab.key}
-                  onPress={() => setActiveTab(tab.key)}
-                  style={[styles.filterTab, active && styles.filterTabActive]}
+                  key={filter.key}
                   accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
+                  accessibilityState={{ selected }}
+                  onPress={() => setSelectedFilter(filter.key)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    paddingHorizontal: 14,
+                    paddingVertical: 9,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: selected ? c.primary : c.border,
+                    backgroundColor: selected ? c.primarySoft : c.card,
+                  }}
                 >
-                  <Text
-                    style={[
-                      styles.filterTabText,
-                      active && styles.filterTabTextActive,
-                    ]}
-                  >
-                    {tab.label}
+                  <Text style={{ color: selected ? c.primary : c.secondary, fontSize: 12, fontWeight: '700' }}>
+                    {filter.label}
                   </Text>
-                  {counts[tab.key] > 0 && (
-                    <View
-                      style={[
-                        styles.tabBadge,
-                        active && styles.tabBadgeActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tabBadgeText,
-                          active && styles.tabBadgeTextActive,
-                        ]}
-                      >
-                        {counts[tab.key]}
-                      </Text>
-                    </View>
-                  )}
+                  <Text style={{ color: selected ? c.primary : c.secondary, fontSize: 11 }}>
+                    {countForFilter(filter.key)}
+                  </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
-
-          {/* Mark all read */}
-          {unreadCount > 0 && (
-            <Pressable
-              onPress={handleMarkAllRead}
-              style={({ pressed }) => [
-                styles.markRead,
-                pressed && styles.pressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Mark all notifications as read"
-            >
-              <Text style={styles.markReadText}>Mark all read</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      {/* ── Content ───────────────────────────────────────────────────── */}
-      {isEmpty ? (
-        <EmptyState />
-      ) : (
-        <ScrollView
-          style={styles.list}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: insets.bottom + 100 },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {filtered.map((n) => (
-            <NotificationCard
-              key={n.id}
-              notification={n}
-              onPress={() => handleCardPress(n.id)}
-              onQuickAction={() => handleQuickAction(n.id)}
-              onLongPress={() => handleLongPress(n)}
-            />
-          ))}
-        </ScrollView>
-      )}
-
-      {/* ── Bottom nav ─────────────────────────────────────────────────── */}
-      <BottomNavBar activeTab="alerts" unreadCount={unreadCount} />
-
-      {/* ── Undo toast ─────────────────────────────────────────────────── */}
-      <UndoToast
-        state={toast}
-        onUndo={handleUndo}
-        onDismiss={() => setToast((t) => ({ ...t, visible: false }))}
-      />
-    </View>
-  );
-}
-
-// ─── Empty state (rendered inline when filtered list is empty) ────────────────
-
-function EmptyState() {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <ScrollView
-      style={styles.emptyScroll}
-      contentContainerStyle={[
-        styles.emptyContent,
-        { paddingBottom: insets.bottom + 100 },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Bell circle */}
-      <View style={styles.emptyBellWrap}>
-        <View style={styles.emptyBellCircle}>
-          <IonIcon name="notifications-outline" size={40} color="#6C7886" />
-        </View>
-        <View style={styles.emptyAllClearBadge}>
-          <Text style={styles.emptyAllClearText}>ALL CLEAR</Text>
-        </View>
-      </View>
-
-      <Text style={styles.emptyHeading}>No Notifications</Text>
-      <Text style={styles.emptyBody}>
-        You're completely caught up! When you reserve books, study seats, or
-        receive recall notices, they will appear right here.
-      </Text>
-
-      {/* CTA buttons */}
-      <Pressable
-        onPress={() => router.push('/books' as never)}
-        style={({ pressed }) => [
-          styles.btnPrimary,
-          pressed && styles.pressed,
-        ]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.btnPrimaryText}>Search Library Catalog</Text>
-      </Pressable>
-
-      <Pressable
-        onPress={() => router.push('/seats' as never)}
-        style={({ pressed }) => [
-          styles.btnSecondary,
-          pressed && styles.pressed,
-        ]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.btnSecondaryText}>Book a Study Room</Text>
-      </Pressable>
-
-      {/* Live campus hub card */}
-      <Pressable
-        style={({ pressed }) => [styles.hubCard, pressed && styles.pressed]}
-        accessibilityRole="button"
-        accessibilityLabel="Live campus hub"
-      >
-        <View style={styles.hubLeft}>
-          <View style={styles.hubDot} />
-          <View>
-            <Text style={styles.hubLabel}>LIVE CAMPUS HUB</Text>
-            <Text style={styles.hubBody}>
-              Main Floor open until Midnight • 142 studying
-            </Text>
           </View>
-        </View>
-        <IonIcon name="chevron-forward" size={18} color="#6C7886" />
-      </Pressable>
 
-      {/* Quiet corners section */}
-      <View style={styles.cornersSection}>
-        <View style={styles.cornersSectionHeader}>
-          <Text style={styles.cornersSectionLabel}>QUIET READING CORNERS</Text>
-          <Pressable accessibilityRole="button">
-            <Text style={styles.mapViewLink}>Map View</Text>
-          </Pressable>
-        </View>
+          {unreadCount > 0 && (
+            <View style={u.between}>
+              <Text style={[u.small, { color: c.secondary }]}>{unreadCount} unread updates</Text>
+              <Pressable accessibilityRole="button" onPress={() => void markAllRead()}>
+                <Text style={[u.link, { color: c.primary }]}>Mark all read</Text>
+              </Pressable>
+            </View>
+          )}
 
-        <View style={styles.locationCards}>
-          <LocationCard
-            name="East Wing Atrium"
-            features="Natural Light"
-            level="Level 3"
-            zone="Quiet Zone"
-          />
-          <LocationCard
-            name="Media Pods"
-            features="Power Sockets"
-            level="Level 1"
-            zone="Collab Area"
-          />
-        </View>
-      </View>
-    </ScrollView>
+          {!!error && <Message error>{error}</Message>}
+
+          {loading ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <ActivityIndicator color={c.primary} />
+              <Text style={[u.small, { marginTop: 10 }]}>Loading notifications…</Text>
+            </View>
+          ) : filteredNotifications.length > 0 ? (
+            <>
+              <Section title="Recent updates" />
+              {filteredNotifications.map(notification => (
+                <NotificationCard
+                  key={notification.id}
+                  notification={notification}
+                  onPress={() => void openNotification(notification)}
+                />
+              ))}
+            </>
+          ) : (
+            <Card style={{ alignItems: 'center', paddingVertical: 30, gap: 12 }}>
+              <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: c.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="bell" size={26} color={c.primary} />
+              </View>
+              <Text style={[u.caption, { color: c.primary, fontWeight: '700' }]}>ALL CLEAR</Text>
+              <Text style={u.heading}>{notifications.length ? 'No matching notifications' : 'No notifications yet'}</Text>
+              <Text style={[u.body, { textAlign: 'center' }]}>
+                {notifications.length
+                  ? 'Try another category to see more library updates.'
+                  : 'Reservation confirmations and library updates will appear here.'}
+              </Text>
+              {notifications.length === 0 && (
+                <Button outline icon="archive" onPress={() => router.push('/books/reservations')}>
+                  View reservations
+                </Button>
+              )}
+            </Card>
+          )}
+        </>
+      )}
+    </Screen>
   );
 }
-
-function LocationCard({
-  name,
-  features,
-  level,
-  zone,
-}: {
-  name: string;
-  features: string;
-  level: string;
-  zone: string;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.locationCard,
-        pressed && styles.pressed,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={`${name}, ${features}, ${level}, ${zone}`}
-    >
-      <IonIcon name="location-outline" size={18} color="#2D7CE9" />
-      <View style={styles.locationBody}>
-        <Text style={styles.locationName}>{name}</Text>
-        <Text style={styles.locationMeta}>
-          {features} • {level}
-        </Text>
-      </View>
-      <StatusBadge label={zone} variant="neutral" size="sm" />
-    </Pressable>
-  );
-}
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F5F7F7',
-  },
-
-  // Header
-  header: {
-    backgroundColor: '#FAFBFB',
-    borderBottomWidth: 1,
-    borderBottomColor: '#DDE2E6',
-    paddingHorizontal: 16,
-    paddingBottom: 0,
-    shadowColor: '#1C283B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-    zIndex: 10,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  heading: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1C283B',
-    lineHeight: 28,
-  },
-  subheading: {
-    fontSize: 13,
-    color: '#6C7886',
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EAF2FD',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Filter tabs
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  filterScroll: {
-    flexDirection: 'row',
-    gap: 4,
-    paddingVertical: 10,
-  },
-  filterTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#F0F2F4',
-  },
-  filterTabActive: {
-    backgroundColor: '#2D7CE9',
-  },
-  filterTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6C7886',
-  },
-  filterTabTextActive: {
-    color: '#FAFBFB',
-  },
-  tabBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#DDE2E6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  tabBadgeActive: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  tabBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#6C7886',
-  },
-  tabBadgeTextActive: {
-    color: '#FAFBFB',
-  },
-  markRead: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexShrink: 0,
-  },
-  markReadText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2D7CE9',
-  },
-
-  // List
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    padding: 16,
-    gap: 12,
-  },
-
-  // Empty state
-  emptyScroll: {
-    flex: 1,
-  },
-  emptyContent: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    gap: 16,
-  },
-  emptyBellWrap: {
-    position: 'relative',
-    marginBottom: 8,
-  },
-  emptyBellCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#F0F2F4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-  },
-  emptyAllClearBadge: {
-    position: 'absolute',
-    top: -6,
-    alignSelf: 'center',
-    backgroundColor: '#25B87A',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  emptyAllClearText: {
-    color: '#FAFBFB',
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
-  emptyHeading: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1C283B',
-    textAlign: 'center',
-  },
-  emptyBody: {
-    fontSize: 14,
-    color: '#6C7886',
-    textAlign: 'center',
-    lineHeight: 21,
-  },
-  btnPrimary: {
-    backgroundColor: '#2D7CE9',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  btnPrimaryText: {
-    color: '#FAFBFB',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  btnSecondary: {
-    borderWidth: 1.5,
-    borderColor: '#2D7CE9',
-    borderRadius: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
-  },
-  btnSecondaryText: {
-    color: '#2D7CE9',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  hubCard: {
-    backgroundColor: '#FAFBFB',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 8,
-  },
-  hubLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  hubDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#25B87A',
-  },
-  hubLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#6C7886',
-    letterSpacing: 0.6,
-    marginBottom: 2,
-  },
-  hubBody: {
-    fontSize: 13,
-    color: '#1C283B',
-    fontWeight: '500',
-  },
-
-  // Quiet corners
-  cornersSection: {
-    width: '100%',
-    gap: 10,
-    marginTop: 4,
-  },
-  cornersSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cornersSectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6C7886',
-    letterSpacing: 0.8,
-  },
-  mapViewLink: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2D7CE9',
-  },
-  locationCards: {
-    gap: 8,
-  },
-  locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FAFBFB',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-    padding: 12,
-  },
-  locationBody: {
-    flex: 1,
-    gap: 2,
-  },
-  locationName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1C283B',
-  },
-  locationMeta: {
-    fontSize: 12,
-    color: '#6C7886',
-  },
-
-  pressed: {
-    opacity: 0.75,
-  },
-
-  // Loading / error states
-  centeredFill: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-    padding: 24,
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#F04F55',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryBtn: {
-    backgroundColor: '#2D7CE9',
-    borderRadius: 10,
-    paddingVertical: 11,
-    paddingHorizontal: 28,
-  },
-  retryBtnText: {
-    color: '#FAFBFB',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-});

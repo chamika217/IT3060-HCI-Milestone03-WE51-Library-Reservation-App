@@ -7,7 +7,7 @@
  * a real API layer is added.
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import {
   ScreenHeader,
@@ -27,7 +27,8 @@ import {
   StatusBadge,
 } from '@/components/notifications';
 import { NotificationPreferences } from '@/features/notifications/types';
-import { MOCK_NOTIFICATIONS, getUnreadCount } from '@/features/notifications/mockData';
+import { getAuthUserId, getNotifications, getUserProfile, updateNotificationPreferences } from '@/services/api';
+import { useLibrary } from '@/state/library';
 
 // ─── Default preferences ──────────────────────────────────────────────────────
 
@@ -45,10 +46,47 @@ const DEFAULT_PREFS: NotificationPreferences = {
 
 export default function PreferencesScreen() {
   const insets = useSafeAreaInsets();
-  const unreadCount = getUnreadCount(MOCK_NOTIFICATIONS);
+  const { user } = useLibrary();
+  const userId = user?.id;
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_PREFS);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lastSynced, setLastSynced] = useState('');
+  const [loadError, setLoadError] = useState('');
+
+  const loadPreferences = useCallback(async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
+      const accountId = userId || await getAuthUserId();
+      const [profile, notifications] = await Promise.all([
+        getUserProfile(accountId),
+        getNotifications(accountId),
+      ]);
+      const stored = profile.notificationPreferences;
+      setPrefs({
+        pushEnabled: stored.pushEnabled,
+        bookHolds: stored.bookHolds,
+        seatBookings: stored.seatAlerts,
+        dueDateReminders: stored.dueDateReminders,
+        cancellationNotices: stored.cancellationNotices,
+        emailSummaries: stored.emailSummaries,
+        quietHoursEnabled: stored.quietHoursEnabled,
+      });
+      setUnreadCount(notifications.filter(item => item.status === 'unread').length);
+      setLastSynced(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : 'Could not load preferences.');
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useFocusEffect(useCallback(() => {
+    void loadPreferences();
+  }, [loadPreferences]));
 
   function update<K extends keyof NotificationPreferences>(
     key: K,
@@ -67,20 +105,25 @@ export default function PreferencesScreen() {
   ].filter(Boolean).length;
 
   async function handleSave() {
+    if (loading || saving) return;
     setSaving(true);
     try {
-      // TODO: replace with real API call:
-      // await fetch('/api/notifications/preferences', {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(prefs),
-      // });
-      await new Promise((r) => setTimeout(r, 600)); // simulate latency
+      const accountId = userId || await getAuthUserId();
+      await updateNotificationPreferences(accountId, {
+        pushEnabled: prefs.pushEnabled,
+        bookHolds: prefs.bookHolds,
+        seatAlerts: prefs.seatBookings,
+        dueDateReminders: prefs.dueDateReminders,
+        cancellationNotices: prefs.cancellationNotices,
+        emailSummaries: prefs.emailSummaries,
+        quietHoursEnabled: prefs.quietHoursEnabled,
+      });
+      setLastSynced(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
       Alert.alert('Saved', 'Your notification preferences have been updated.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch {
-      Alert.alert('Error', 'Could not save preferences. Please try again.');
+    } catch (cause) {
+      Alert.alert('Error', cause instanceof Error ? cause.message : 'Could not save preferences. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -110,6 +153,7 @@ export default function PreferencesScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {!!loadError && <Text accessibilityRole="alert" style={{ color: '#F04F55', fontSize: 13 }}>{loadError}</Text>}
         {/* ── Sub-heading ──────────────────────────────────────── */}
         <View style={styles.subheadBlock}>
           <Text style={styles.subheadTitle}>Settings • University ID #204918</Text>
@@ -229,23 +273,23 @@ export default function PreferencesScreen() {
         <View style={styles.footerNote}>
           <IonIcon name="sync" size={14} color="#6C7886" />
           <Text style={styles.footerNoteText}>
-            Synced with Student Portal • Last updated today at 08:30 AM
+          {loading ? 'Loading saved preferences…' : `Synced with your account • Last updated at ${lastSynced || 'not yet synced'}`}
           </Text>
         </View>
 
         {/* ── Save button ───────────────────────────────────────── */}
         <Pressable
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || loading}
           style={({ pressed }) => [
             styles.btnSave,
-            (pressed || saving) && styles.btnSavePressed,
+            (pressed || saving || loading) && styles.btnSavePressed,
           ]}
           accessibilityRole="button"
           accessibilityLabel="Save preferences"
         >
           <Text style={styles.btnSaveText}>
-            {saving ? 'Saving…' : 'Save Preferences'}
+            {loading ? 'Loading…' : saving ? 'Saving…' : 'Save Preferences'}
           </Text>
         </Pressable>
       </ScrollView>
