@@ -1,11 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Button, Card, Icon, Message, Screen, Section, u } from '@/components/library/ui';
 import { NotificationCard } from '@/components/notifications/NotificationCard';
 import type { Notification } from '@/features/notifications/types';
-import { getNotifications, markAllNotificationsRead, markNotificationRead } from '@/services/api';
-import { useLibrary } from '@/state/library';
+import { getNotifications, markAllNotificationsRead, markNotificationRead, getAuthUserId } from '@/services/api';
 import { palette as c } from '@/constants/design-system';
 
 type FilterKey = 'all' | 'books' | 'seats' | 'system';
@@ -17,12 +16,18 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 export default function Notifications() {
-  const { user } = useLibrary();
-  const userId = user?.id;
+  const [userId, setUserId] = useState<string | undefined>(undefined);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<FilterKey>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Get userId from our auth system (not useLibrary)
+  useEffect(() => {
+    getAuthUserId()
+      .then(setUserId)
+      .catch(() => setUserId(undefined));
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     if (!userId) {

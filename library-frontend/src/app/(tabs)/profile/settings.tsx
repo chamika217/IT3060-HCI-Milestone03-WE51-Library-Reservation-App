@@ -27,8 +27,9 @@ import {
   Divider,
   IonIcon,
 } from '@/components/shared';
-import { getUserProfile, updateNotificationPreferences, getAuthUserId } from '@/services/api';
+import { getUserProfile, updateNotificationPreferences, getAuthUserId, clearAuthToken } from '@/services/api';
 import { ApiNotificationPreferences } from '@/features/notifications/types';
+import { useAppTheme } from '@/contexts/ThemeContext';
 
 
 // Default prefs shown before the API responds
@@ -45,8 +46,8 @@ const DEFAULT_PREFS: ApiNotificationPreferences = {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
 
-  // ── Device-local toggles (no API) ────────────────────────────────────────
-  const [darkMode,     setDarkMode]     = useState(false);
+  // ── Device-local toggles ─────────────────────────────────────────────────
+  const { isDark, setIsDark } = useAppTheme(); // global dark mode
   const [readingMode,  setReadingMode]  = useState(true);
   const [inAppBanners, setInAppBanners] = useState(true);
 
@@ -80,18 +81,30 @@ export default function SettingsScreen() {
   }
 
   function handleSignOut() {
-    Alert.alert(
-      'Log Out',
-      'Sign out of your campus account on this device?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Log Out', style: 'destructive', onPress: () => {} },
-      ],
-    );
+    const doSignOut = () => {
+      clearAuthToken();
+      router.replace('/(auth)/login' as never);
+    };
+
+    // Alert.alert does not work on web — use window.confirm instead
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      if (window.confirm('Sign out of your campus account on this device?')) {
+        doSignOut();
+      }
+    } else {
+      Alert.alert(
+        'Log Out',
+        'Sign out of your campus account on this device?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Log Out', style: 'destructive', onPress: doSignOut },
+        ],
+      );
+    }
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, isDark && styles.screenDark]}>
       <ScreenHeader title="Settings" onBack={() => router.back()} />
 
       <ScrollView
@@ -104,8 +117,8 @@ export default function SettingsScreen() {
           <ToggleRow
             label="Dark Mode"
             description="High contrast dark theme"
-            value={darkMode}
-            onValueChange={setDarkMode}
+            value={isDark}
+            onValueChange={setIsDark}
           />
           <View style={styles.rowDivider} />
           <ToggleRow
@@ -232,6 +245,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   screen:        { flex: 1, backgroundColor: '#F5F7F7' },
+  screenDark:    { backgroundColor: '#000000' },
   scroll:        { flex: 1 },
   scrollContent: { padding: 16, gap: 16 },
   rowDivider:    { height: 1, backgroundColor: '#F0F2F4', marginHorizontal: 16 },

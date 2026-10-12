@@ -329,7 +329,7 @@ export default function NotificationDetailScreen() {
         <Pressable
           style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed]}
           accessibilityRole="button"
-          onPress={() => {/* Navigate to full reservation screen */}}
+          onPress={() => router.push('/books/reservations' as never)}
         >
           <Text style={styles.btnPrimaryText}>View Full Reservation →</Text>
         </Pressable>
@@ -339,7 +339,7 @@ export default function NotificationDetailScreen() {
           style={({ pressed }) => [styles.contactRow, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel="Contact library staff"
-          onPress={() => {/* Navigate to contact screen */}}
+          onPress={() => router.push('/(tabs)/profile/contact' as never)}
         >
           <IonIcon name="people-outline" size={18} color="#6C7886" />
           <Text style={styles.contactText}>Need Help? Contact Library Staff</Text>

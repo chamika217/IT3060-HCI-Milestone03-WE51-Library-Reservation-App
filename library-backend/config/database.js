@@ -67,6 +67,8 @@ module.exports = async function connectDatabase() {
   }
   await mongoose.connect(uri, {
     serverSelectionTimeoutMS: 20000,
+    tls: true,
+    tlsInsecure: true, // dev only — bypasses SSL cert verification (campus proxy)
     ...(process.env.MONGODB_DB ? { dbName: process.env.MONGODB_DB } : {}),
   });
 };
