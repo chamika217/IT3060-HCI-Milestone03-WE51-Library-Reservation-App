@@ -33,20 +33,17 @@ export const SeatBottomNav: React.FC<SeatBottomNavProps> = ({
   ];
 
   const handlePress = (tab: TabName) => {
-    // Always navigate to Reading Rooms when Home is tapped.
-    if (tab === 'Home') {
-      router.push('/seats');
-      onTabPress?.(tab);
-      return;
-    }
-    // Always navigate to the Auto-Release Warning screen when Alerts is tapped.
-    // Handled centrally here so no individual screen needs its own Alerts branch,
-    // and tapping Alerts can never accidentally trigger a destructive action.
-    if (tab === 'Alerts') {
-      router.push('/seats/auto-release-warning');
-      onTabPress?.(tab);
-      return;
-    }
+    const destinations: Record<TabName, string> = {
+      Home: '/home',
+      Search: '/seats',
+      Bookings: '/seats/my-bookings',
+      Alerts: '/notifications',
+      Profile: '/profile',
+    };
+
+    // Use replace for tab navigation so repeatedly changing tabs does not
+    // create a long back-stack of the same screens.
+    router.replace(destinations[tab] as never);
     onTabPress?.(tab);
   };
 

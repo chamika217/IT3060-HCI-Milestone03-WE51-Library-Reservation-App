@@ -237,11 +237,7 @@ const styles = StyleSheet.create({
     borderColor: '#DDE2E6',
     padding: 16,
     gap: 14,
-    shadowColor: '#1C283B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    boxShadow: '0px 1px 3px rgba(28, 40, 59, 0.05)',
   },
   fieldDivider: { height: 1, backgroundColor: '#F0F2F4' },
   input: {

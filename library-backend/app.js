@@ -12,6 +12,11 @@ const origins = (process.env.CORS_ORIGIN || 'http://localhost:8081')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
+// Expo may choose the next available web port when 8081 is occupied.
+for (const port of [8081, 8083, 8084, 8085]) {
+  const origin = `http://localhost:${port}`;
+  if (!origins.includes(origin)) origins.push(origin);
+}
 
 app.use((req, res, next) => {
   req.requestId = randomUUID();

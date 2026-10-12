@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 const subscribe = () => () => {};
 const clientSnapshot = () => true;

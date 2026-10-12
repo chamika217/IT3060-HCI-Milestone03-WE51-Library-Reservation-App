@@ -48,24 +48,12 @@ export const font = {
 
 export const shadows = {
   sm: {
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    boxShadow: '0px 2px 6px rgba(28, 40, 59, 0.04)',
   },
   md: {
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    boxShadow: '0px 4px 12px rgba(28, 40, 59, 0.08)',
   },
   lg: {
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 8,
+    boxShadow: '0px 8px 20px rgba(28, 40, 59, 0.12)',
   },
 };

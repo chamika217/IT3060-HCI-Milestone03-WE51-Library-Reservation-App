@@ -27,6 +27,8 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String },
   passwordHash: { type: String, select: false },
+  passwordResetCodeHash: { type: String, select: false },
+  passwordResetExpiresAt: { type: Date, select: false },
   role: {
     type: String,
     enum: ['Student', 'Staff', 'Admin', 'student', 'staff', 'admin'],

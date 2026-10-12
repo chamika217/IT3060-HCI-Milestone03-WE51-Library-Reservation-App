@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Badge, Button, Card, Icon, Message, Screen, u } from '@/components/library/ui';
 import { palette as c } from '@/constants/design-system';
@@ -30,8 +30,79 @@ export default function Profile() {
           <Text style={u.body}>{demo ? 'This sample account is for exploring the design. Demo changes last for this session only.' : 'Sign in to manage your library account.'}</Text>
         )}
       </Card>
+      {user && (
+        <>
+          <View style={{ gap: 8 }}>
+            <Text style={u.eyebrow}>Manage your account</Text>
+            <Card style={{ padding: 0, gap: 0 }}>
+              <ProfileAction
+                icon="edit-3"
+                title="Edit profile"
+                description="Update your name, phone number, and library details."
+                onPress={() => router.push('/profile/edit' as never)}
+              />
+              <View style={u.divider} />
+              <ProfileAction
+                icon="settings"
+                title="Settings & notifications"
+                description="Choose how the library sends you alerts."
+                onPress={() => router.push('/profile/settings' as never)}
+              />
+            </Card>
+          </View>
+
+          <View style={{ gap: 8 }}>
+            <Text style={u.eyebrow}>Support</Text>
+            <Card style={{ padding: 0, gap: 0 }}>
+              <ProfileAction
+                icon="help-circle"
+                title="Help & FAQs"
+                description="Find answers about borrowing and reservations."
+                onPress={() => router.push('/profile/help' as never)}
+              />
+              <View style={u.divider} />
+              <ProfileAction
+                icon="message-circle"
+                title="Contact the library"
+                description="Send a question or report an account issue."
+                onPress={() => router.push('/profile/contact' as never)}
+              />
+            </Card>
+          </View>
+        </>
+      )}
       {!!error && <Message error>{error}</Message>}
       <Button busy={busy} outline onPress={signOut}>{demo ? 'Leave demo' : user ? 'Sign out' : 'Sign in'}</Button>
     </Screen>
+  );
+}
+
+function ProfileAction({
+  icon,
+  title,
+  description,
+  onPress,
+}: {
+  icon: 'edit-3' | 'settings' | 'help-circle' | 'message-circle';
+  title: string;
+  description: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={({ pressed }) => [u.row, { padding: 16, alignItems: 'center', opacity: pressed ? 0.75 : 1 }]}
+    >
+      <View style={{ width: 38, height: 38, borderRadius: 8, backgroundColor: c.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={18} color={c.primary} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={[u.body, { color: c.text, fontWeight: '700' }]}>{title}</Text>
+        <Text style={u.small}>{description}</Text>
+      </View>
+      <Icon name="chevron-right" size={18} color={c.secondary} />
+    </Pressable>
   );
 }

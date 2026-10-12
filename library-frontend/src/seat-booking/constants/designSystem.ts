@@ -28,17 +28,9 @@ export const Colors = {
 
 export const Shadows = {
   card: {
-    shadowColor: Colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.04)',
   },
   soft: {
-    shadowColor: Colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.03)',
   },
 };

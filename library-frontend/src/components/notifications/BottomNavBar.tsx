@@ -6,8 +6,7 @@
  * Tabs: Home · Search · Bookings · Alerts · Profile
  * The "Alerts" tab shows a badge when `unreadCount > 0`.
  *
- * Each tab calls `router.push()` with a placeholder path; swap those paths
- * for the real routes once the other feature groups complete their work.
+ * Each tab points to the app's canonical Expo Router route.
  */
 
 import React from 'react';
@@ -27,16 +26,16 @@ interface NavTab {
   label: string;
   icon: IonIconName;
   iconActive: IonIconName;
-  /** Target route. Adjust when other screens are built. */
+  /** Target route. */
   href: string;
 }
 
 const TABS: NavTab[] = [
-  { key: 'home',     label: 'Home',     icon: 'home-outline',     iconActive: 'home',     href: '/' },
+  { key: 'home',     label: 'Home',     icon: 'home-outline',     iconActive: 'home',     href: '/home' },
   { key: 'search',   label: 'Search',   icon: 'search',           iconActive: 'search',   href: '/books' },
   { key: 'bookings', label: 'Bookings', icon: 'calendar-outline', iconActive: 'calendar', href: '/seats' },
-  { key: 'alerts',   label: 'Alerts',   icon: 'notifications-outline', iconActive: 'notifications', href: '/(tabs)/notifications' },
-  { key: 'profile',  label: 'Profile',  icon: 'person-outline',   iconActive: 'person',   href: '/(tabs)/profile' },
+  { key: 'alerts',   label: 'Alerts',   icon: 'notifications-outline', iconActive: 'notifications', href: '/notifications' },
+  { key: 'profile',  label: 'Profile',  icon: 'person-outline',   iconActive: 'person',   href: '/profile' },
 ];
 
 interface BottomNavBarProps {
@@ -63,7 +62,7 @@ export function BottomNavBar({ activeTab = 'alerts', unreadCount = 0 }: BottomNa
         return (
           <Pressable
             key={tab.key}
-            onPress={() => router.push(tab.href as never)}
+            onPress={() => router.replace(tab.href as never)}
             style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
             accessibilityRole="tab"
             accessibilityLabel={tab.label}
@@ -101,12 +100,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#DDE2E6',
     paddingTop: 8,
-    // Shadow
-    shadowColor: '#1C283B',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 8,
+    boxShadow: '0px -2px 8px rgba(28, 40, 59, 0.06)',
     // Elevate above content on Android
     zIndex: 100,
   },

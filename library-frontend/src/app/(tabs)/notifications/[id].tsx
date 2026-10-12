@@ -461,11 +461,7 @@ const styles = StyleSheet.create({
     borderColor: '#DDE2E6',
     padding: 16,
     gap: 12,
-    shadowColor: '#1C283B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    boxShadow: '0px 1px 4px rgba(28, 40, 59, 0.05)',
   },
   sectionLabel: {
     fontSize: 10,

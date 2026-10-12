@@ -29,11 +29,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 
 import { IonIcon, StatusBadge, BottomNavBar } from '@/components/notifications';
 import { getNotifications } from '@/services/api';
 import { useLibrary } from '@/state/library';
+
+type NotificationsModule = typeof import('expo-notifications');
 
 // ─── Benefit row data ─────────────────────────────────────────────────────────
 
@@ -101,6 +103,14 @@ export default function PermissionScreen() {
         setError('Notification permissions are available in the iOS and Android app.');
         return;
       }
+      if (Constants.appOwnership === 'expo') {
+        setError('Push notifications need the installed development build. This preview works in Expo Go without push notifications.');
+        return;
+      }
+      // Expo Go cannot load the remote-notification native module. Requiring it
+      // only after the Expo Go guard keeps this screen usable in both clients.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Notifications = require('expo-notifications') as NotificationsModule;
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
           name: 'Library updates',
@@ -377,11 +387,7 @@ const styles = StyleSheet.create({
     borderColor: '#DDE2E6',
     width: '100%',
     overflow: 'hidden',
-    shadowColor: '#1C283B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    boxShadow: '0px 1px 4px rgba(28, 40, 59, 0.05)',
   },
   benefitDivider: {
     height: 1,

@@ -76,11 +76,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#DDE2E6',
     gap: 8,
     // Shadow
-    shadowColor: '#1C283B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    boxShadow: '0px 1px 3px rgba(28, 40, 59, 0.05)',
     zIndex: 10,
   },
   iconButton: {

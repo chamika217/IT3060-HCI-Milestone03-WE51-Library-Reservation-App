@@ -4,4 +4,13 @@ export type Registration = { name: string; studentId: string; department: string
 type Session = { token: string; user: User; expiresAt: string };
 export type GoogleLoginResult = Session | { registrationRequired: true; profile: { name: string; email: string } };
 export type GoogleRegistration = { credential: string; studentId: string; department: string; acceptedTerms: boolean };
-export const authApi = { login: (email: string, password: string) => request<Session>('/auth/login', 'POST', { email, password }), google: (credential: string) => request<GoogleLoginResult>('/auth/google', 'POST', { credential }), googleRegister: (details: GoogleRegistration) => request<Session>('/auth/google/register', 'POST', details), register: (details: Registration) => request<Session>('/auth/register', 'POST', details), me: () => request<{ user: User }>('/auth/me'), logout: () => request('/auth/logout', 'POST') };
+export const authApi = {
+  login: (email: string, password: string) => request<Session>('/auth/login', 'POST', { email, password }),
+  google: (credential: string) => request<GoogleLoginResult>('/auth/google', 'POST', { credential }),
+  googleRegister: (details: GoogleRegistration) => request<Session>('/auth/google/register', 'POST', details),
+  register: (details: Registration) => request<Session>('/auth/register', 'POST', details),
+  requestPasswordReset: (email: string) => request<{ message: string; devCode?: string }>('/auth/password-reset/request', 'POST', { email }),
+  resetPassword: (email: string, code: string, password: string) => request<{ message: string }>('/auth/password-reset/confirm', 'POST', { email, code, password }),
+  me: () => request<{ user: User }>('/auth/me'),
+  logout: () => request('/auth/logout', 'POST'),
+};

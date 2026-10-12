@@ -21,7 +21,7 @@ export default function RootLayout() {
       <LibraryProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack initialRouteName="index" screenOptions={{ headerShown: false }}>
             <Stack.Screen name="admin-panel" />
           </Stack>
         </ThemeProvider>

@@ -1,10 +1,11 @@
 const bcrypt = require('bcryptjs');
-const { randomBytes } = require('node:crypto');
+const { randomBytes, randomInt, createHash } = require('node:crypto');
 const User = require('../models/User');
 const Session = require('../models/Session');
 const { createSession, publicUser } = require('../services/session');
 const { verifyGoogleIdToken } = require('../services/googleIdentity');
 const { validRegistrationEmail, emailMessage } = require('../services/registrationEmail');
+const { sendPasswordResetEmail } = require('../services/passwordResetEmail');
 const clean = value => typeof value === 'string' ? value.trim() : '';
 const credentials = body => {
   const email = clean(body?.email).toLowerCase(), password = body?.password;
@@ -34,6 +35,54 @@ exports.login = async (req, res) => {
   const valid = await bcrypt.compare(data.password, user?.passwordHash || user?.password || dummy);
   if (!user || !valid) return res.status(401).json({ message: 'Email or password is incorrect.' });
   res.json(await createSession(user));
+};
+const resetCodeHash = code => createHash('sha256').update(code).digest('hex');
+const genericResetResponse = { message: 'If that email has an account, a password reset code has been sent.' };
+exports.requestPasswordReset = async (req, res) => {
+  const email = clean(req.body?.email).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ message: 'Enter a valid email address.' });
+  const user = await User.findOne({ email }).select('+passwordResetCodeHash +passwordResetExpiresAt');
+  if (!user) return res.json(genericResetResponse);
+  const code = String(randomInt(100000, 1000000));
+  user.passwordResetCodeHash = resetCodeHash(code);
+  user.passwordResetExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  await user.save({ validateBeforeSave: false });
+  try {
+    await sendPasswordResetEmail(user.email, code);
+  } catch (error) {
+    // Local development can exercise the complete reset flow without storing
+    // personal SMTP credentials in the project. Never enable this in a
+    // deployed environment: the reset code is deliberately returned only for
+    // a developer's local test session.
+    if (process.env.PASSWORD_RESET_DEV_MODE === 'true' && process.env.NODE_ENV !== 'production') {
+      return res.json({
+        message: 'Email is not configured. Use the local test code below to reset the password.',
+        devCode: code,
+      });
+    }
+    user.passwordResetCodeHash = undefined;
+    user.passwordResetExpiresAt = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw error;
+  }
+  return res.json(genericResetResponse);
+};
+exports.resetPassword = async (req, res) => {
+  const email = clean(req.body?.email).toLowerCase();
+  const code = clean(req.body?.code);
+  const password = req.body?.password;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^\d{6}$/.test(code) || typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password) > 72 || !/[a-z]/.test(password) || !/[A-Z]/.test(password)) {
+    return res.status(400).json({ message: 'Enter the six-digit code and a password with at least 8 characters, including uppercase and lowercase letters.' });
+  }
+  const user = await User.findOne({ email, passwordResetCodeHash: resetCodeHash(code), passwordResetExpiresAt: { $gt: new Date() } }).select('+passwordHash');
+  if (!user) return res.status(400).json({ message: 'This reset code is invalid or has expired. Request a new code.' });
+  user.passwordHash = await bcrypt.hash(password, 12);
+  user.password = user.passwordHash;
+  user.passwordResetCodeHash = undefined;
+  user.passwordResetExpiresAt = undefined;
+  await user.save({ validateBeforeSave: false });
+  await Session.deleteMany({ userId: user._id });
+  return res.json({ message: 'Password reset successfully. Sign in with your new password.' });
 };
 async function getGoogleProfile(credential) {
   const clientId = process.env.GOOGLE_CLIENT_ID;

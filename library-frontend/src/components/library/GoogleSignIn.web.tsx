@@ -15,15 +15,22 @@ declare global { interface Window { google?: GoogleIdentity } }
 
 const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 const scriptId = 'google-identity-services';
+const allowLocalGoogleSignIn = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_WEB_SIGNIN === 'true';
 
 export default function GoogleSignIn({ onCredential, disabled = false }: { onCredential: (credential: string) => void; disabled?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const credentialHandler = useRef(onCredential);
   const [error, setError] = useState('');
+  const isLocalhost = typeof window !== 'undefined'
+    && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const canLoadGoogle = Boolean(clientId) && (!isLocalhost || allowLocalGoogleSignIn);
   useEffect(() => { credentialHandler.current = onCredential; }, [onCredential]);
 
   useEffect(() => {
-    if (!clientId) return;
+    // Google rejects this project's current OAuth client from localhost. Do not
+    // load its script locally unless the origin has been authorized in Google
+    // Cloud Console and the opt-in environment flag has been set.
+    if (!canLoadGoogle || !clientId) return;
     let disposed = false;
     const mountButton = () => {
       if (disposed || !host.current || !window.google) return;
@@ -64,13 +71,13 @@ export default function GoogleSignIn({ onCredential, disabled = false }: { onCre
     }
 
     return () => { disposed = true; };
-  }, []);
+  }, [canLoadGoogle]);
 
   return (
     <View style={{ alignItems: 'center', opacity: disabled ? 0.55 : 1 }}>
-      {clientId
+      {canLoadGoogle
         ? <div ref={host} aria-disabled={disabled} style={{ pointerEvents: disabled ? 'none' : 'auto', minHeight: 44 }} />
-        : <Text style={{ color: c.secondary, fontSize: 12, textAlign: 'center' }}>Add EXPO_PUBLIC_GOOGLE_CLIENT_ID to library-frontend/.env to enable Google sign-in.</Text>}
+        : <Text style={{ color: c.secondary, fontSize: 12, textAlign: 'center' }}>{isLocalhost ? 'Google sign-in is disabled for local testing. Use email and password, or authorize this localhost origin in Google Cloud.' : 'Add EXPO_PUBLIC_GOOGLE_CLIENT_ID to library-frontend/.env to enable Google sign-in.'}</Text>}
       {!!error && <Text accessibilityRole="alert" style={{ color: c.error, fontSize: 12, marginTop: 8, textAlign: 'center' }}>{error}</Text>}
     </View>
   );
