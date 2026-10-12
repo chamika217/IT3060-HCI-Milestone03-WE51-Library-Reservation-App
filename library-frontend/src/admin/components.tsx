@@ -503,7 +503,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingTop: Platform.OS === 'ios' ? 48 : (StatusBar.currentHeight || 24) + 12,
+    paddingTop: Platform.OS === 'web' ? 14 : Platform.OS === 'ios' ? 48 : (StatusBar.currentHeight || 24) + 12,
     paddingBottom: spacing.sm + 4,
     paddingHorizontal: spacing.md,
   },
@@ -516,6 +516,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 40,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerLeft: {
     flexDirection: 'row',

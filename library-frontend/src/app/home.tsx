@@ -10,8 +10,7 @@ export default function Home() {
   const { demo, name, books, holds, user } = library;
   const ref = useRef(library);
   const [error, setError] = useState('');
-  const { width } = useWindowDimensions();
-  const wide = Platform.OS === 'web' && width >= 900;
+  const wide = false;
 
   useEffect(() => { ref.current = library; }, [library]);
   useFocusEffect(useCallback(() => {

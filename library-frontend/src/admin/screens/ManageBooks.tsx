@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, font, radius } from '../theme';
-import { Header, Card, Button, StatusBadge, Loading, ErrorBox, Empty, SearchBar, Fab } from '../components';
+import { Header, Card, Button, StatusBadge, Loading, ErrorBox, Empty, SearchBar } from '../components';
 import { notify, confirmAction } from '../dialog';
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
@@ -29,7 +29,7 @@ export default function ManageBooks({ nav }: any) {
         subtitle="Catalog & Inventory Control"
         right={
           <Button
-            title="+ Add Book"
+            title="Add Book"
             size="sm"
             icon="add"
             onPress={() => nav.navigate('BookForm')}
@@ -53,7 +53,7 @@ export default function ManageBooks({ nav }: any) {
         <FlatList
           data={data}
           keyExtractor={(b: any) => b._id}
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: 80 }}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl }}
           ListEmptyComponent={<Empty text="No books found in catalog" icon="book-outline" actionLabel="Add New Book" onAction={() => nav.navigate('BookForm')} />}
           renderItem={({ item: b }: any) => (
             <Card onPress={() => nav.navigate('BookForm', { book: b })} style={s.bookCard}>
@@ -101,8 +101,6 @@ export default function ManageBooks({ nav }: any) {
           )}
         />
       )}
-
-      <Fab onPress={() => nav.navigate('BookForm')} icon="add" label="Add Book" />
     </View>
   );
 }

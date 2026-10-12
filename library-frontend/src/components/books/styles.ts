@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F4F7FB' },
-  content: { padding: 20, gap: 16, width: '100%', maxWidth: 960, alignSelf: 'center' },
+  content: { padding: 20, gap: 16, width: '100%', maxWidth: 480, alignSelf: 'center' },
   title: { fontSize: 28, fontWeight: '800', color: '#17213A' },
   heading: { fontSize: 19, fontWeight: '700', color: '#17213A' },
   copy: { fontSize: 15, lineHeight: 23, color: '#52617B' },

@@ -6,7 +6,7 @@ import { useLibrary, useFilteredBooks } from '@/state/library';
 import BookResult from '@/components/library/BookResult';
 import { SHELF_AISLES } from '@/constants/shelf-aisles';
 export default function Results() {
-  const wide = useWindowDimensions().width >= 900;
+  const wide = false;
   const library = useLibrary(); const { demo, query, setQuery, filters } = library; const ref = useRef(library); useEffect(() => { ref.current = library; }, [library]);
   const results = useFilteredBooks(); const { aisle: aisleId } = useLocalSearchParams<{ aisle?: string }>(); const activeAisle = SHELF_AISLES.find(aisle => aisle.id === aisleId); const visibleResults = activeAisle ? results.filter(book => activeAisle.categories.includes(book.category)) : results; const [loading, setLoading] = useState(false), [error, setError] = useState('');
   const load = useCallback(async () => { setLoading(true); setError(''); try { await ref.current.list(); } catch { setError('Cannot load the catalogue. Check the API connection and try again.'); } finally { setLoading(false); } }, []);

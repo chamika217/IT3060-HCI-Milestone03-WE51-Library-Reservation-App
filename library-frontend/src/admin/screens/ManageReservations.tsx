@@ -46,7 +46,7 @@ export default function ManageReservations({ nav, params }: any) {
         subtitle="Review & manage user bookings"
         right={
           <Button
-            title="+ New"
+            title="New"
             size="sm"
             icon="add"
             onPress={() => nav.navigate('ReservationForm', { onCreated: reload })}

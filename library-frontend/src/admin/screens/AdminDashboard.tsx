@@ -222,13 +222,14 @@ const s = StyleSheet.create({
   statGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: spacing.md,
     marginBottom: spacing.xs,
   },
   statCard: {
-    width: '48%',
+    flex: 1,
+    minWidth: 160,
     padding: spacing.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   statHeader: {
     flexDirection: 'row',

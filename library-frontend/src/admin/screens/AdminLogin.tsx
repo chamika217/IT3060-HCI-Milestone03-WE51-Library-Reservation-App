@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { colors, spacing, font, radius, shadows } from '../theme';
 import { Button, Input, Card } from '../components';
 import { notify } from '../dialog';
@@ -77,6 +78,14 @@ export default function AdminLogin({ nav }: any) {
             icon="log-in-outline"
             style={{ marginTop: spacing.sm }}
           />
+
+          <TouchableOpacity
+            onPress={() => router.push('/login')}
+            style={s.memberLink}
+            activeOpacity={0.7}
+          >
+            <Text style={s.memberLinkText}>Student or staff member? Open member sign-in</Text>
+          </TouchableOpacity>
         </Card>
 
         <View style={s.footer}>
@@ -140,6 +149,17 @@ const s = StyleSheet.create({
     fontSize: font.small,
     color: colors.textSecondary,
     marginBottom: spacing.md,
+  },
+  memberLink: {
+    marginTop: spacing.md,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  memberLinkText: {
+    fontSize: font.xs,
+    color: colors.primary,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   footer: {
     flexDirection: 'row',

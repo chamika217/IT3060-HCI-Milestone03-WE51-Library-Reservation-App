@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Platform, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, font, radius, shadows } from './theme';
 import { Header, Card, Avatar, SectionTitle } from './components';
@@ -160,21 +160,12 @@ export default function AdminApp() {
 const s = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: '#EAEFF5',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.background,
   },
   appFrame: {
     flex: 1,
     width: '100%',
-    maxWidth: Platform.OS === 'web' ? 480 : undefined,
     backgroundColor: colors.background,
-    overflow: 'hidden',
-    ...(Platform.OS === 'web'
-      ? {
-          boxShadow: '0px 12px 30px rgba(28, 40, 59, 0.15)',
-        }
-      : {}),
   },
   adminProfileCard: {
     flexDirection: 'row',

@@ -6,7 +6,7 @@ import { palette as c } from '@/constants/design-system';
 import { useLibrary } from '@/state/library';
 export default function Confirmation() {
   const { demo, confirmation: item } = useLibrary();
-  const wide = useWindowDimensions().width >= 900;
+  const wide = false;
   return (
     <Screen title="Reservation confirmation" back="/books" tab="holds" demo={demo}>
       {!item ? (
@@ -15,7 +15,7 @@ export default function Confirmation() {
           <Button onPress={() => router.replace('/books/reservations')}>My reservations</Button>
         </>
       ) : (
-        <View style={{ width: '100%', maxWidth: 1080, minWidth: 0, alignSelf: 'center', gap: 28 }}>
+        <View style={{ width: '100%', maxWidth: 480, minWidth: 0, alignSelf: 'center', gap: 28 }}>
           <View style={{ gap: 10, paddingBottom: 20, borderBottomWidth: 1, borderColor: c.border }}>
             <View style={u.row}>
               <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.successSoft, alignItems: 'center', justifyContent: 'center' }}>
