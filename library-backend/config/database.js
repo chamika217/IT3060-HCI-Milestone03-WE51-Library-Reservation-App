@@ -5,8 +5,8 @@ const tls = require('node:tls');
 
 function googleDnsQuery(name, type) {
   return new Promise((resolve, reject) => {
-    // Pin the HTTPS endpoint IP so DNS-over-HTTPS still works when the active
-    // network refuses ordinary DNS queries. TLS hostname verification remains on.
+    // Atlas uses DNS SRV records. Some campus/ISP DNS servers reject those
+    // lookups, so resolve them through Google's HTTPS DNS endpoint instead.
     const request = https.get({
       hostname: '8.8.8.8',
       port: 443,
@@ -65,5 +65,8 @@ module.exports = async function connectDatabase() {
       uri = await resolveSrvUri(uri);
     }
   }
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 20000, ...(process.env.MONGODB_DB ? { dbName: process.env.MONGODB_DB } : {}) });
+  await mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 20000,
+    ...(process.env.MONGODB_DB ? { dbName: process.env.MONGODB_DB } : {}),
+  });
 };

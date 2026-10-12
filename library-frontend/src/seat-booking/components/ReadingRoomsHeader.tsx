@@ -1,18 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Colors, Shadows } from '../constants/designSystem';
 
-interface ReadingRoomsHeaderProps {
-  onNotificationPress?: () => void;
-  onProfilePress?: () => void;
-}
-
-export const ReadingRoomsHeader: React.FC<ReadingRoomsHeaderProps> = ({
-  onNotificationPress,
-  onProfilePress,
-}) => {
+export const ReadingRoomsHeader: React.FC = () => {
+  const router = useRouter();
   return (
     <View style={styles.container}>
       {/* Left logo / app title badge */}
@@ -27,7 +21,7 @@ export const ReadingRoomsHeader: React.FC<ReadingRoomsHeaderProps> = ({
       <View style={styles.rightGroup}>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={onNotificationPress}
+          onPress={() => router.push('/notifications')}
           activeOpacity={0.7}
         >
           <Ionicons name="notifications-outline" size={20} color={Colors.textDark} />
@@ -36,7 +30,7 @@ export const ReadingRoomsHeader: React.FC<ReadingRoomsHeaderProps> = ({
 
         <TouchableOpacity
           style={styles.profileButton}
-          onPress={onProfilePress}
+          onPress={() => router.push('/profile')}
           activeOpacity={0.7}
         >
           <Ionicons name="person" size={18} color="#FFFFFF" />

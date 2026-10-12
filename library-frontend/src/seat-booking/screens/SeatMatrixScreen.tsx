@@ -93,10 +93,7 @@ export default function SeatMatrixScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* Top Header */}
-      <ReadingRoomsHeader
-        onNotificationPress={() => Alert.alert('Notifications', 'No new alerts.')}
-        onProfilePress={() => Alert.alert('Profile', 'Student Account #2026-IT')}
-      />
+      <ReadingRoomsHeader />
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Breadcrumb Header */}

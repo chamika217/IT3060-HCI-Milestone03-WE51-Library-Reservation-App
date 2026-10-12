@@ -184,7 +184,7 @@ export default function SettingsScreen() {
             iconColor="#F7A35C"
             label="Change Password"
             description="Last updated 30 days ago"
-            onPress={() => {}}
+            onPress={() => router.push('/profile/change-password' as never)}
           />
           <Divider />
           <MenuRow

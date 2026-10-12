@@ -172,10 +172,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     ...(Platform.OS === 'web'
       ? {
-          shadowColor: '#1C283B',
-          shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: 0.15,
-          shadowRadius: 30,
+          boxShadow: '0px 12px 30px rgba(28, 40, 59, 0.15)',
         }
       : {}),
   },

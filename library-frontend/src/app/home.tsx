@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { Badge, Card, Icon, Message, Screen, Section, u } from '@/components/library/ui';
 import { palette as c } from '@/constants/design-system';
 import { useLibrary } from '@/state/library';
@@ -10,8 +10,8 @@ export default function Home() {
   const { demo, name, books, holds, user } = library;
   const ref = useRef(library);
   const [error, setError] = useState('');
-  const [serviceInfo, setServiceInfo] = useState('');
-  const wide = useWindowDimensions().width >= 900;
+  const { width } = useWindowDimensions();
+  const wide = Platform.OS === 'web' && width >= 900;
 
   useEffect(() => { ref.current = library; }, [library]);
   useFocusEffect(useCallback(() => {
@@ -20,7 +20,7 @@ export default function Home() {
 
   const services = [
     { title: 'Search Books', copy: 'Stacks & shelf map', icon: 'search' as const, color: c.primary, surface: c.primarySoft, onPress: () => router.push('/books') },
-    { title: 'Reserve Pod', copy: 'Study pod booking is not available yet', icon: 'calendar' as const, color: '#8B28D8', surface: '#F6EFFF', onPress: () => setServiceInfo('Study pod booking is not available in this app yet. You can still reserve books from Search Books.') },
+    { title: 'Reserve Pod', copy: 'Choose a study room and reserve your seat', icon: 'calendar' as const, color: '#8B28D8', surface: '#F6EFFF', onPress: () => router.push('/seats') },
     { title: user ? `My Holds (${holds.length})` : 'My Holds', copy: user ? 'View pickup dates and collection codes' : 'Sign in to view your reservations', icon: 'archive' as const, color: '#C65A00', surface: c.warningSoft, onPress: () => router.push(user ? '/books/reservations' : '/login') },
     { title: 'Reader Pass', copy: user?.studentId ? `Library ID · ${user.studentId}` : 'Sign in to view your library ID', icon: 'credit-card' as const, color: '#008568', surface: c.successSoft, onPress: () => router.push(user ? '/profile' : '/login') },
   ];
@@ -71,15 +71,13 @@ export default function Home() {
               </View>
               {item.title.startsWith('My Holds') && <Icon name="arrow-right" color={item.color} size={17} />}
               {item.title === 'Reader Pass' && <Icon name="arrow-right" color={item.color} size={17} />}
-              {item.title === 'Reserve Pod' && <Badge tone="warning">COMING SOON</Badge>}
+              {item.title === 'Reserve Pod' && <Icon name="arrow-right" color={item.color} size={17} />}
             </View>
             <Text style={u.heading}>{item.title}</Text>
             <Text style={u.small}>{item.copy}</Text>
           </Pressable>
         ))}
       </View>
-      {!!serviceInfo && <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: c.warningSoft, padding: 14 }}><Icon name="info" color={c.warning} size={17} /><Text style={[u.small, { flex: 1 }]}>{serviceInfo}</Text><Pressable accessibilityRole="button" accessibilityLabel="Dismiss message" onPress={() => setServiceInfo('')}><Icon name="x" color={c.secondary} size={17} /></Pressable></View>}
-
       <Section title={demo ? 'Discover the collection' : 'Explore your library'} action="See all" onPress={() => router.push('/books')} />
       {books.length ? books.slice(0, 3).map(book => <BookResult key={book.id} book={book} />) : (
         <Card>

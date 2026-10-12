@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -157,10 +156,7 @@ export default function ReadingRoomsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* Top Header */}
-      <ReadingRoomsHeader
-        onNotificationPress={() => Alert.alert('Notifications', 'No new alerts.')}
-        onProfilePress={() => Alert.alert('Profile', 'Student Account #2026-IT')}
-      />
+      <ReadingRoomsHeader />
 
       <ScrollView
         style={styles.scrollContainer}
@@ -171,7 +167,7 @@ export default function ReadingRoomsScreen() {
       >
         {/* Breadcrumb & Title */}
         <CampusBreadcrumb
-          onBackPress={() => Alert.alert('Back', 'Returning to main campus menu.')}
+          onBackPress={() => router.replace('/home')}
         />
 
         {/* Overall Campus Density Card */}

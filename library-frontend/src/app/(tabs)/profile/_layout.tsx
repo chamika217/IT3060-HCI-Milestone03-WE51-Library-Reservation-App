@@ -24,6 +24,10 @@ export default function ProfileLayout() {
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
+        name="change-password"
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
         name="help"
         options={{ animation: 'slide_from_right' }}
       />

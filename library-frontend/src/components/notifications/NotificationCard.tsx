@@ -248,11 +248,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
     overflow: 'hidden',
-    shadowColor: '#1C283B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    boxShadow: '0px 1px 4px rgba(28, 40, 59, 0.06)',
   },
   cardUnread: {
     borderColor: '#B3D0F7',
