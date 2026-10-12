@@ -69,7 +69,11 @@ async function seedSeatBookingRooms() {
 
 async function seed() {
   if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI is not set.');
-  await mongoose.connect(process.env.MONGODB_URI);
+  await mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 20000,
+    tls: true,
+    tlsInsecure: true, // dev only — bypasses SSL cert (campus proxy)
+  });
 
   const adminPasswordHash = await bcrypt.hash('Admin@12345', 10);
   const demoPasswordHash = await bcrypt.hash('Password123!', 10);

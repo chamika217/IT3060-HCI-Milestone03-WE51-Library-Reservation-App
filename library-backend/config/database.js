@@ -57,18 +57,15 @@ async function resolveSrvUri(uri) {
 
 module.exports = async function connectDatabase() {
   if (!process.env.MONGODB_URI) throw new Error('Set MONGODB_URI in library-backend/.env');
-  let uri = process.env.MONGODB_URI;
-  if (uri.startsWith('mongodb+srv://')) {
-    try {
-      await dns.promises.resolveSrv(`_mongodb._tcp.${new URL(uri).hostname}`);
-    } catch {
-      uri = await resolveSrvUri(uri);
-    }
-  }
+  const uri = process.env.MONGODB_URI;
+
+  // Connect directly with tlsInsecure — bypasses the campus SSL proxy
+  // that intercepts TLS connections. The custom DNS resolution is skipped
+  // because Mongoose's mongodb+srv driver handles SRV lookups internally.
   await mongoose.connect(uri, {
     serverSelectionTimeoutMS: 20000,
     tls: true,
-    tlsInsecure: true, // dev only — bypasses SSL cert verification (campus proxy)
+    tlsInsecure: true, // dev only — disable cert verification (campus/university proxy)
     ...(process.env.MONGODB_DB ? { dbName: process.env.MONGODB_DB } : {}),
   });
 };
