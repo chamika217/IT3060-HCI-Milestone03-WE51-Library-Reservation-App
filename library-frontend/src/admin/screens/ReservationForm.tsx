@@ -442,8 +442,16 @@ export default function ReservationForm({ nav, params }: any) {
         transparent
         onRequestClose={() => setModalType(null)}
       >
-        <View style={s.modalOverlay}>
-          <View style={s.modalContent}>
+        <TouchableOpacity
+          style={s.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setModalType(null)}
+        >
+          <TouchableOpacity
+            style={s.modalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation?.()}
+          >
             {/* Modal Header */}
             <View style={s.modalHeader}>
               <View>
@@ -590,8 +598,8 @@ export default function ReservationForm({ nav, params }: any) {
                 )
               )}
             </ScrollView>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -761,14 +769,19 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+    width: '100%',
   },
   modalContent: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     backgroundColor: colors.card,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     maxHeight: '85%',
     padding: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     ...shadows.lg,
   },
   modalHeader: {
@@ -809,6 +822,7 @@ const s = StyleSheet.create({
     fontSize: font.body,
     color: colors.text,
     padding: 0,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : {}),
   },
   modalList: {
     maxHeight: 400,
