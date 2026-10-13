@@ -67,7 +67,7 @@ export default function Holds() {
   }
 
   return (
-    <Screen title="My reservations" subtitle="YOUR ACCOUNT SHELF" tab="holds" demo={library.demo}>
+    <Screen title="My reservations" subtitle="YOUR ACCOUNT SHELF" back="/books" tab="holds" demo={library.demo}>
       <View style={{ backgroundColor: c.successSoft, borderLeftWidth: 4, borderLeftColor: c.success, padding: 24, gap: 8 }}>
         <Text style={[u.eyebrow, { color: c.success }]}>A little reading, lined up.</Text>
         <Text style={u.title}>{items.length} active {items.length === 1 ? 'reservation' : 'reservations'}</Text>
