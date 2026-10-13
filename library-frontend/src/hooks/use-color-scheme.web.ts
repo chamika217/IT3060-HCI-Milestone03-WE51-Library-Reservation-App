@@ -1,18 +1,20 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { useColorScheme as useRNColorScheme } from 'react-native';
-const subscribe = () => () => {};
-const clientSnapshot = () => true;
-const serverSnapshot = () => false;
-// Keep static HTML and the first hydration render consistent.
-export function useColorScheme() {
-  const [hasHydrated, setHasHydrated] = useState(false);
+/**
+ * useColorScheme (web) — same as the native version but with SSR guard.
+ * Reads from ThemeContext so the Dark Mode toggle works on web too.
+ */
+import { useEffect, useState } from 'react';
+import { useAppTheme } from '@/contexts/ThemeContext';
+
+export function useColorScheme(): 'light' | 'dark' {
+  const { isDark } = useAppTheme();
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const id = requestAnimationFrame(() => setHasHydrated(true));
-    return () => cancelAnimationFrame(id);
+    setHydrated(true);
   }, []);
 
-  const hydrated = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
-  const colorScheme = useRNColorScheme();
-  return hydrated ? colorScheme : 'light';
+  // Before hydration return 'light' to keep SSR consistent
+  if (!hydrated) return 'light';
+
+  return isDark ? 'dark' : 'light';
 }

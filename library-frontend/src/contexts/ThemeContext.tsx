@@ -17,7 +17,7 @@ interface ThemeContextValue {
   setIsDark: (v: boolean) => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue>({
+export const ThemeContext = createContext<ThemeContextValue>({
   isDark: false,
   setIsDark: () => {},
 });
