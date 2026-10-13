@@ -53,7 +53,7 @@ export default function ManageBooks({ nav }: any) {
         <FlatList
           data={data}
           keyExtractor={(b: any) => b._id}
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl }}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
           ListEmptyComponent={<Empty text="No books found in catalog" icon="book-outline" actionLabel="Add New Book" onAction={() => nav.navigate('BookForm')} />}
           renderItem={({ item: b }: any) => (
             <Card onPress={() => nav.navigate('BookForm', { book: b })} style={s.bookCard}>

@@ -68,7 +68,7 @@ export default function ManageReservations({ nav, params }: any) {
         <FlatList
           data={data}
           keyExtractor={(r: any) => r._id}
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
           ListEmptyComponent={<Empty text={`No ${tab.toLowerCase()} reservations`} icon="calendar-outline" />}
           renderItem={({ item: r }: any) => (
             <Card style={s.card}>
