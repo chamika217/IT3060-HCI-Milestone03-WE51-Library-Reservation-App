@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { palette as c } from '@/constants/design-system';
+import googleOAuth from '@/constants/google-oauth.public.json';
 
 type GoogleCredential = { credential?: string };
 type GoogleIdentity = {
@@ -13,9 +14,11 @@ type GoogleIdentity = {
 };
 declare global { interface Window { google?: GoogleIdentity } }
 
-const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || googleOAuth.webClientId;
 const scriptId = 'google-identity-services';
-const allowLocalGoogleSignIn = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_WEB_SIGNIN === 'true';
+const allowLocalGoogleSignIn = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_WEB_SIGNIN
+  ? process.env.EXPO_PUBLIC_ENABLE_GOOGLE_WEB_SIGNIN === 'true'
+  : googleOAuth.enableWebSignIn;
 
 export default function GoogleSignIn({ onCredential, disabled = false }: { onCredential: (credential: string) => void; disabled?: boolean }) {
   const host = useRef<HTMLDivElement>(null);

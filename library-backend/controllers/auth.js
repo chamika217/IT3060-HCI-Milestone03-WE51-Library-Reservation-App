@@ -6,6 +6,7 @@ const { createSession, publicUser } = require('../services/session');
 const { verifyGoogleIdToken } = require('../services/googleIdentity');
 const { validRegistrationEmail, emailMessage } = require('../services/registrationEmail');
 const { sendPasswordResetEmail } = require('../services/passwordResetEmail');
+const googleOAuth = require('../../library-frontend/src/constants/google-oauth.public.json');
 const clean = value => typeof value === 'string' ? value.trim() : '';
 const credentials = body => {
   const email = clean(body?.email).toLowerCase(), password = body?.password;
@@ -85,7 +86,7 @@ exports.resetPassword = async (req, res) => {
   return res.json({ message: 'Password reset successfully. Sign in with your new password.' });
 };
 async function getGoogleProfile(credential) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientId = process.env.GOOGLE_CLIENT_ID || googleOAuth.webClientId;
   if (!clientId) throw Object.assign(new Error('Google sign-in is not configured on the server.'), { status: 503 });
   if (typeof credential !== 'string' || credential.length > 8192) throw Object.assign(new Error('Google sign-in response is invalid.'), { status: 400 });
   let payload;

@@ -9,9 +9,10 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 import { palette as c } from '@/constants/design-system';
+import googleOAuth from '@/constants/google-oauth.public.json';
 
-const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || googleOAuth.webClientId;
+const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || googleOAuth.iosClientId;
 const configured = Boolean(webClientId && (Platform.OS !== 'ios' || iosClientId));
 
 export default function GoogleSignIn({
