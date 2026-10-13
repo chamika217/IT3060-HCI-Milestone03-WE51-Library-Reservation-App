@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Switch, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Switch, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, font, radius } from '../theme';
 import { Header, Card, Button, Input, Loading, ErrorBox, Empty, SectionTitle } from '../components';
+import { notify, confirmAction } from '../dialog';
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
 
@@ -12,14 +13,15 @@ export default function NotificationsMgmt({ nav }: any) {
   const [message, setMessage] = useState('');
 
   const add = async () => {
-    if (!title.trim()) return Alert.alert('Missing title', 'Enter a title');
+    if (!title.trim()) return notify('Missing title', 'Enter an announcement title');
     try {
       await api.post('/announcements', { title: title.trim(), message: message.trim() });
       setTitle('');
       setMessage('');
       reload();
+      notify('Published', 'Announcement broadcasted successfully.');
     } catch (e) {
-      Alert.alert('Error', errMsg(e));
+      notify('Error', errMsg(e));
     }
   };
 
@@ -28,31 +30,26 @@ export default function NotificationsMgmt({ nav }: any) {
       await api.put(`/announcements/${a._id}`, { active: !a.active });
       reload();
     } catch (e) {
-      Alert.alert('Error', errMsg(e));
+      notify('Error', errMsg(e));
     }
   };
 
-  const remove = (a: any) =>
-    Alert.alert('Delete', `Delete "${a.title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/announcements/${a._id}`);
-            reload();
-          } catch (e) {
-            Alert.alert('Error', errMsg(e));
-          }
-        },
-      },
-    ]);
+  const remove = async (a: any) => {
+    const ok = await confirmAction('Delete', `Delete "${a.title}"?`, 'Delete', true);
+    if (!ok) return;
+    try {
+      await api.delete(`/announcements/${a._id}`);
+      reload();
+      notify('Deleted', 'Announcement removed.');
+    } catch (e) {
+      notify('Error', errMsg(e));
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Header title="Notifications Management" subtitle="Broadcast system notices to users" onBack={nav.goBack} />
-      <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <Card style={s.publishCard}>
           <SectionTitle title="Create Announcement" subtitle="Broadcast notice to student & staff mobile apps" style={{ marginTop: 0 }} />
 

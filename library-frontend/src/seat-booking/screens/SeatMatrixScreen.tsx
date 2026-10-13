@@ -19,7 +19,7 @@ import { SeatDetailCard } from '../components/SeatDetailCard';
 import { SeatMatrixGrid } from '../components/SeatMatrixGrid';
 import { SeatMatrixLegend } from '../components/SeatMatrixLegend';
 import { Colors, Shadows } from '../constants/designSystem';
-import { generatePodSections, MOCK_ROOMS } from '../mock/roomsData';
+import { ALL_LIBRARY_SLOTS, generatePodSections, MOCK_ROOMS } from '../mock/roomsData';
 import { useBookingStore } from '../store/bookingStore';
 import { DateOption, PodSection, SeatItem } from '../types/seatBooking';
 
@@ -47,11 +47,11 @@ export default function SeatMatrixScreen() {
    */
   const podSections: PodSection[] = useMemo(() => {
     const sections = generatePodSections(roomCapacity, roomCode);
-    const ALL_SLOT_IDS = ['t-0800','t-1000','t-1030','t-1230','t-1430','t-1630','t-1800'];
+    const allSlotIds = ALL_LIBRARY_SLOTS.map((s) => s.id);
     return sections.map((section) => ({
       ...section,
       seats: section.seats.map((seat) => {
-        const taken = ALL_SLOT_IDS.some((slotId) =>
+        const taken = allSlotIds.some((slotId) =>
           isSeatTaken(roomCode, seat.seatNumber, slotId, selectedDate)
         );
         return taken ? { ...seat, status: 'taken' as const } : seat;

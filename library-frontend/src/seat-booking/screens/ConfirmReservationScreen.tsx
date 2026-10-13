@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,7 +38,7 @@ export default function ConfirmReservationScreen() {
   const dateOption: DateOption = params.dateOption === 'tomorrow' ? 'tomorrow' : 'today';
   const roomName = params.roomName || 'Individual Study Area';
   const roomCode = params.roomCode || 'L2-NORTH';
-  /** When non-empty this is a seat-change flow — the old booking must be cancelled atomically. */
+  /** Non-empty = seat-change flow; old booking is cancelled atomically on confirm. */
   const replacingBookingId = params.replacingBookingId ?? '';
 
   const { addBooking, cancelBooking } = useBookingStore();
@@ -56,38 +57,44 @@ export default function ConfirmReservationScreen() {
 
   const handleConfirmReservation = async () => {
     if (!agreed) {
-      Alert.alert(
-        'Check-In Agreement Required',
-        'Please accept the 15-minute check-in policy before confirming your reservation.'
-      );
+      if (Platform.OS === 'web') {
+        window.alert('Check-In Agreement Required\n\nPlease accept the 15-minute check-in policy before confirming your reservation.');
+      } else {
+        Alert.alert(
+          'Check-In Agreement Required',
+          'Please accept the 15-minute check-in policy before confirming your reservation.'
+        );
+      }
       return;
     }
 
     if (selectedSlot?.status === 'expired') {
-      Alert.alert(
-        'Invalid Slot',
-        'This slot has already passed for today. Please pick a current or upcoming slot.'
-      );
+      if (Platform.OS === 'web') {
+        window.alert('Invalid Slot\n\nThis slot has already passed for today. Please pick a current or upcoming slot.');
+      } else {
+        Alert.alert(
+          'Invalid Slot',
+          'This slot has already passed for today. Please pick a current or upcoming slot.'
+        );
+      }
       return;
     }
 
     setSubmitting(true);
 
-    // Try posting to MongoDB backend API
+    // Try posting to the backend (silent on failure so app works offline)
     try {
       const now = new Date();
-      if (dateOption === 'tomorrow') {
-        now.setDate(now.getDate() + 1);
-      }
+      if (dateOption === 'tomorrow') now.setDate(now.getDate() + 1);
       const startTime = new Date(now.setHours(14, 30, 0, 0)).toISOString();
-      const endTime = new Date(now.setHours(16, 30, 0, 0)).toISOString();
+      const endTime   = new Date(now.setHours(16, 30, 0, 0)).toISOString();
 
       await fetch(BACKEND_RESERVATIONS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user: '650000000000000000000001', // Mock student ObjectId
-          seat: '650000000000000000000002', // Mock seat ObjectId
+          user: '650000000000000000000001',
+          seat: '650000000000000000000002',
           startTime,
           endTime,
           deskDelivery: {
@@ -97,18 +104,17 @@ export default function ConfirmReservationScreen() {
         }),
       });
     } catch {
-      // Continue to navigation even if backend is offline
+      // Offline — continue with local state
     }
 
     setSubmitting(false);
 
-    // If this is a seat-change, cancel the old booking first so it never
-    // coexists with the new one in the active list.
+    // If this is a seat-change, cancel the old booking atomically first
     if (replacingBookingId) {
       cancelBooking(replacingBookingId);
     }
 
-    // Record the new booking in the shared store so occupancy updates live
+    // Record the new booking in the shared store (drives occupancy + seat matrix)
     addBooking({
       roomCode,
       seatNumber,
@@ -117,38 +123,21 @@ export default function ConfirmReservationScreen() {
       timeRange: selectedSlot?.timeRange || '02:30 PM – 04:30 PM',
     });
 
-    const confirmTitle = replacingBookingId
-      ? 'Seat Changed Successfully ✅'
-      : 'Reservation Confirmed! 🎉';
-    const confirmBody = replacingBookingId
-      ? `Your booking has been updated to Seat ${seatNumber} for ${dateOption === 'today' ? 'Today' : 'Tomorrow'} (${selectedSlot?.timeRange || '02:30 PM – 04:30 PM'}).`
-      : `Seat ${seatNumber} has been successfully reserved for ${dateOption === 'today' ? 'Today' : 'Tomorrow'} (${selectedSlot?.timeRange || '02:30 PM – 04:30 PM'}).`;
-
-    Alert.alert(
-      confirmTitle,
-      confirmBody,
-      [
-        {
-          text: 'View My Bookings',
-          onPress: () => {
-            router.push({
-              pathname: '/seats/my-bookings',
-              params: {
-                seatNumber,
-                roomName,
-                dateOption,
-                timeRange: selectedSlot?.timeRange || '02:30 PM – 04:30 PM',
-              },
-            });
-          },
-        },
-      ]
-    );
+    // Navigate immediately to MyBookingsScreen so user sees their confirmed booking
+    router.replace({
+      pathname: '/seats/my-bookings',
+      params: {
+        seatNumber,
+        roomName,
+        dateOption,
+        timeRange: selectedSlot?.timeRange || '02:30 PM – 04:30 PM',
+      },
+    });
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* Top Header */}
+      {/* Header */}
       <ReadingRoomsHeader />
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -176,7 +165,6 @@ export default function ConfirmReservationScreen() {
               <Text style={styles.seatTitle}>Seat {seatNumber}</Text>
               <Text style={styles.seatSubtitle}>Level 1 • {roomName}</Text>
             </View>
-
             <View style={styles.chairIconBadge}>
               <Ionicons name="hardware-chip-outline" size={20} color={Colors.primary} />
             </View>
@@ -198,7 +186,7 @@ export default function ConfirmReservationScreen() {
           </View>
         </View>
 
-        {/* Schedule Controls (Time Slots) */}
+        {/* Time Slot Selector */}
         <TimeSlotSelector
           dateOption={dateOption}
           slots={timeSlots}
@@ -206,15 +194,13 @@ export default function ConfirmReservationScreen() {
           onSelectSlot={setSelectedSlotId}
         />
 
-        {/* Optional Desk Delivery Search */}
+        {/* Optional Desk Delivery */}
         <DeskDeliverySearch
           seatNumber={seatNumber}
           onToggleDelivery={(_enabled, book) => setDeliveryBook(book)}
         />
 
-      
-
-        {/* Agreement Checkbox */}
+        {/* Check-in Agreement */}
         <TouchableOpacity
           style={styles.agreementRow}
           onPress={() => setAgreed(!agreed)}
@@ -226,12 +212,13 @@ export default function ConfirmReservationScreen() {
             color={agreed ? Colors.primary : Colors.textSecondary}
           />
           <Text style={styles.agreementText}>
-            I agree to check in within 15 minutes of slot start time. Unclaimed desks are returned to the pool.
+            I agree to check in within 15 minutes of slot start time. Unclaimed desks are
+            returned to the pool.
           </Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Sticky Bottom Action Button */}
+      {/* Confirm Button */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={[styles.confirmButton, submitting && styles.buttonDisabled]}
@@ -350,73 +337,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: Colors.textDark,
-  },
-  studentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 14,
-    padding: 14,
-    backgroundColor: Colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 12,
-    ...Shadows.soft,
-  },
-  avatarCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#1E293B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  studentInfo: {
-    flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  studentName: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: Colors.textDark,
-  },
-  yearTag: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    backgroundColor: '#F0F4F8',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  studentDetails: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  rfidBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.successSoft,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  rfidText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.success,
   },
   agreementRow: {
     flexDirection: 'row',

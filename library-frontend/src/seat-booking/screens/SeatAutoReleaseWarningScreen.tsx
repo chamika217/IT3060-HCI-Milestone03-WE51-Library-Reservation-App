@@ -75,8 +75,7 @@ const CircularTimer: React.FC<CircularTimerProps> = ({
   color = Colors.error,
   trackColor = '#F0F3F6',
 }) => {
-  // Intentionally created once — re-creating Animated.Value would reset the animation.
-  const animProgress = useMemo(() => new Animated.Value(progress), []);
+  const [animProgress] = useState(() => new Animated.Value(progress));
 
   useEffect(() => {
     Animated.timing(animProgress, {
@@ -214,7 +213,6 @@ export default function SeatAutoReleaseWarningScreen() {
   // ── Resolve active booking ────────────────────────────────────────────────
   const activeBooking: Booking | undefined = useMemo(
     () => getActiveBookings()[0],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [getActiveBookings]
   );
 

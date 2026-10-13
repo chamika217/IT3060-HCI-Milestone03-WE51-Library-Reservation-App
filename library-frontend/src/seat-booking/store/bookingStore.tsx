@@ -60,7 +60,11 @@ function bookingReducer(state: BookingState, action: BookingAction): BookingStat
     case 'CANCEL_BOOKING': {
       const next = new Set(state.cancelledIds);
       next.add(action.id);
-      return { ...state, cancelledIds: next };
+      return {
+        ...state,
+        cancelledIds: next,
+        bookings: state.bookings.filter((b) => b.id !== action.id),
+      };
     }
     case 'EXTEND_BOOKING': {
       const prev = state.extensionMins[action.id] ?? 0;
@@ -181,6 +185,11 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
       const endMins = getBookingEndMinutes(b);
       if (endMins === null) return false;
       const now = new Date();
+      // Keep bookings made recently in the active session (within 30m) visible in Active tab
+      const createdTs = parseInt(b.id.replace(/^bk-/, ''), 10);
+      if (!isNaN(createdTs) && Date.now() - createdTs < 30 * 60 * 1000) {
+        return false;
+      }
       return now.getHours() * 60 + now.getMinutes() >= endMins;
     },
     [state.completedIds, getBookingEndMinutes]

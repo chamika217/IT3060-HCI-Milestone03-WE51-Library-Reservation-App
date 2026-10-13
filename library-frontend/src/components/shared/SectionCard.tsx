@@ -1,19 +1,6 @@
-/**
- * SectionCard — a labelled rounded card wrapping a group of rows.
- *
- * Usage:
- *   <SectionCard label="ACCOUNT & SECURITY" rightLabel="4 active">
- *     <MenuRow ... />
- *     <Divider />
- *     <MenuRow ... />
- *   </SectionCard>
- *
- * The children are rendered inside a card with design-system shadow/border.
- * `rightLabel` accepts a string or any ReactNode (e.g. a StatusBadge).
- */
-
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useScreenColors } from '@/hooks/useScreenColors';
 
 interface SectionCardProps {
   label?: string;
@@ -22,54 +9,32 @@ interface SectionCardProps {
 }
 
 export function SectionCard({ label, rightLabel, children }: SectionCardProps) {
+  const C = useScreenColors();
   return (
     <View style={styles.section}>
       {(label || rightLabel) && (
         <View style={styles.sectionHeader}>
-          {label ? <Text style={styles.sectionLabel}>{label}</Text> : <View />}
+          {label ? <Text style={[styles.sectionLabel, { color: C.textSecondary }]}>{label}</Text> : <View />}
           {rightLabel ? <View>{rightLabel}</View> : null}
         </View>
       )}
-      <View style={styles.card}>{children}</View>
+      <View style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>{children}</View>
     </View>
   );
 }
 
-/** Thin hairline divider between rows inside a SectionCard */
 export function Divider() {
-  return <View style={dividerStyles.line} />;
+  const C = useScreenColors();
+  return <View style={[dividerStyles.line, { backgroundColor: C.divider }]} />;
 }
 
 const dividerStyles = StyleSheet.create({
-  line: {
-    height: 1,
-    backgroundColor: '#F0F2F4',
-    marginHorizontal: 16,
-  },
+  line: { height: 1, marginHorizontal: 16 },
 });
 
 const styles = StyleSheet.create({
-  section: {
-    gap: 8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6C7886',
-    letterSpacing: 0.8,
-  },
-  card: {
-    backgroundColor: '#FAFBFB',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DDE2E6',
-    overflow: 'hidden',
-    boxShadow: '0px 1px 3px rgba(28, 40, 59, 0.05)',
-  },
+  section:       { gap: 8 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
+  sectionLabel:  { fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
+  card:          { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
 });

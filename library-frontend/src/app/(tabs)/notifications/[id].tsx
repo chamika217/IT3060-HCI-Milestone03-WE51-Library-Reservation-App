@@ -117,31 +117,48 @@ export default function NotificationDetailScreen() {
       await markNotificationUnread(String(notification.id));
       router.back();
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not update notification.');
+      const msg = err instanceof Error ? err.message : 'Could not update notification.';
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert('Error: ' + msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
     }
   }
 
   function handleDelete() {
     if (!notification) return;
-    Alert.alert(
-      'Delete Notification',
-      'This notification will be permanently removed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteNotification(String(notification!.id));
-              router.back();
-            } catch (err) {
-              Alert.alert('Error', err instanceof Error ? err.message : 'Could not delete notification.');
-            }
-          },
-        },
-      ],
-    );
+
+    const doDelete = async () => {
+      try {
+        await deleteNotification(String(notification.id));
+        router.back();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Could not delete notification.';
+        // Web fallback
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+          window.alert('Error: ' + msg);
+        } else {
+          Alert.alert('Error', msg);
+        }
+      }
+    };
+
+    // Use window.confirm on web, Alert.alert on native
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      if (window.confirm('Delete this notification? This cannot be undone.')) {
+        void doDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Notification',
+        'This notification will be permanently removed.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: () => void doDelete() },
+        ],
+      );
+    }
   }
 
   return (

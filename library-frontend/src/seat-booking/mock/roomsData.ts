@@ -174,18 +174,17 @@ export interface LibrarySlotDef {
 export const ALL_LIBRARY_SLOTS: LibrarySlotDef[] = [
   { id: 't-0800', startHour: 8,  startMin: 0,  endHour: 10, endMin: 0,  timeRange: '08:00 AM – 10:00 AM', tagline: 'Early Morning Block • 2.0 hrs' },
   { id: 't-1000', startHour: 10, startMin: 0,  endHour: 12, endMin: 0,  timeRange: '10:00 AM – 12:00 PM', tagline: 'Mid-Morning Window • 2.0 hrs' },
-  { id: 't-1030', startHour: 10, startMin: 30, endHour: 12, endMin: 30, timeRange: '10:30 AM – 12:30 PM', tagline: 'Peak Focus Block • 2.0 hrs' },
-  { id: 't-1230', startHour: 12, startMin: 30, endHour: 14, endMin: 30, timeRange: '12:30 PM – 02:30 PM', tagline: 'Midday Window • 2.0 hrs' },
-  { id: 't-1430', startHour: 14, startMin: 30, endHour: 16, endMin: 30, timeRange: '02:30 PM – 04:30 PM', tagline: 'Afternoon Block • 2.0 hrs' },
-  { id: 't-1630', startHour: 16, startMin: 30, endHour: 18, endMin: 30, timeRange: '04:30 PM – 06:30 PM', tagline: 'Evening Session • 2.0 hrs' },
-  { id: 't-1800', startHour: 18, startMin: 0,  endHour: 20, endMin: 0,  timeRange: '06:00 PM – 08:00 PM', tagline: 'Late Focus Window • 2.0 hrs' },
+  { id: 't-1030', startHour: 12, startMin: 0, endHour: 14, endMin: 0, timeRange: '12:00 PM – 02:00 PM', tagline: 'Peak Focus Block • 2.0 hrs' },
+  { id: 't-1230', startHour: 14, startMin: 0, endHour: 16, endMin: 0, timeRange: '02:00 PM – 04:00 PM', tagline: 'Midday Window • 2.0 hrs' },
+  { id: 't-1430', startHour: 16, startMin: 0, endHour: 18, endMin: 0, timeRange: '04:00 PM – 06:00 PM', tagline: 'Afternoon Block • 2.0 hrs' },
+  { id: 't-1630', startHour: 18, startMin: 0, endHour: 20, endMin: 0, timeRange: '06:00 PM – 08:00 PM', tagline: 'Evening Session • 2.0 hrs' },
 ];
 
 export function getCalculatedTimeSlots(dateOption: 'today' | 'tomorrow'): TimeSlotOption[] {
   const now = new Date();
   const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
-  return ALL_LIBRARY_SLOTS.map((slot) => {
+  const slots = ALL_LIBRARY_SLOTS.map((slot) => {
     const slotEndMinutes = slot.endHour * 60 + slot.endMin;
     const slotStartMinutes = slot.startHour * 60 + slot.startMin;
 
@@ -205,6 +204,13 @@ export function getCalculatedTimeSlots(dateOption: 'today' | 'tomorrow'): TimeSl
 
     return { id: slot.id, timeRange: slot.timeRange, tagline: slot.tagline, status };
   });
+
+  // If all slots are expired for today (e.g. testing late at night), mark the last slot as 'active' so users can always test booking
+  if (dateOption === 'today' && slots.every((s) => s.status === 'expired') && slots.length > 0) {
+    slots[slots.length - 1].status = 'active';
+  }
+
+  return slots;
 }
 
 export const MOCK_TIME_SLOTS: TimeSlotOption[] = getCalculatedTimeSlots('today');

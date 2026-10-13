@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, font, radius } from '../theme';
 import { Header, Card, Button, Input, Loading, ErrorBox, SectionTitle } from '../components';
+import { notify, confirmAction, chooseAction } from '../dialog';
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
 
@@ -30,41 +31,47 @@ export default function ManageSeats({ nav }: any) {
       await api.put(`/seats/${s._id}`, { status });
       reload();
     } catch (e) {
-      Alert.alert('Error', errMsg(e));
+      notify('Error', errMsg(e));
     }
   };
 
-  const open = (s: any) => {
+  const open = async (s: any) => {
     setSelectedSeatId(s._id);
-    Alert.alert(`Seat ${s.label}`, `Current Status: ${s.status}`, [
-      { text: 'Set Available', onPress: () => { setSelectedSeatId(null); setStatus(s, 'Available'); } },
-      { text: 'Set Maintenance', onPress: () => { setSelectedSeatId(null); setStatus(s, 'Maintenance'); } },
-      {
-        text: 'Delete seat',
-        style: 'destructive',
-        onPress: async () => {
-          setSelectedSeatId(null);
-          try {
-            await api.delete(`/seats/${s._id}`);
-            reload();
-          } catch (e) {
-            Alert.alert('Error', errMsg(e));
-          }
-        },
-      },
-      { text: 'Close', style: 'cancel', onPress: () => setSelectedSeatId(null) },
+    const action = await chooseAction(`Seat ${s.label}`, `Current Status: ${s.status}`, [
+      { label: 'Mark Available', value: 'Available' },
+      { label: 'Mark Maintenance', value: 'Maintenance' },
+      { label: 'Mark Occupied', value: 'Occupied' },
+      { label: 'Delete Seat', value: 'delete' },
     ]);
+    setSelectedSeatId(null);
+    if (!action) return;
+
+    if (action === 'delete') {
+      const ok = await confirmAction('Delete Seat', `Are you sure you want to delete seat ${s.label}?`, 'Delete', true);
+      if (ok) {
+        try {
+          await api.delete(`/seats/${s._id}`);
+          reload();
+          notify('Deleted', `Seat ${s.label} removed successfully.`);
+        } catch (e) {
+          notify('Error', errMsg(e));
+        }
+      }
+    } else {
+      setStatus(s, action);
+    }
   };
 
   const add = async () => {
     const trimmed = label.trim();
-    if (!trimmed) return Alert.alert('Missing label', 'Enter a seat label e.g. D1');
+    if (!trimmed) return notify('Missing label', 'Enter a seat label e.g. D1');
     try {
       await api.post('/seats', { label: trimmed.toUpperCase() });
       setLabel('');
       reload();
+      notify('Seat Added', `Seat ${trimmed.toUpperCase()} created successfully.`);
     } catch (e) {
-      Alert.alert('Seat error', errMsg(e));
+      notify('Seat error', errMsg(e));
     }
   };
 
@@ -77,7 +84,7 @@ export default function ManageSeats({ nav }: any) {
       ) : error && !data ? (
         <ErrorBox message={error} onRetry={reload} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
           <Card style={s.legendCard}>
             <Text style={s.legendTitle}>Seat Status Legend</Text>
             <View style={s.legendGrid}>
@@ -93,18 +100,18 @@ export default function ManageSeats({ nav }: any) {
           <SectionTitle title="Seat Layout Grid" subtitle="Tap any seat to change status or remove" />
 
           <View style={s.seatGrid}>
-            {(data || []).map((s: any) => {
-              const statusKey = String(s.status);
+            {(data || []).map((sItem: any) => {
+              const statusKey = String(sItem.status);
               const mainColor = COLOR[statusKey] || colors.textSecondary;
               const bgColor = LIGHT_COLOR[statusKey] || colors.secondaryLight;
-              const isSelected = selectedSeatId === s._id;
+              const isSelected = selectedSeatId === sItem._id;
 
               return (
                 <TouchableOpacity
-                  key={s._id}
-                  onPress={() => open(s)}
+                  key={sItem._id}
+                  onPress={() => open(sItem)}
                   activeOpacity={0.75}
-                  accessibilityLabel={`Seat ${s.label}, status ${s.status}`}
+                  accessibilityLabel={`Seat ${sItem.label}, status ${sItem.status}`}
                   accessibilityRole="button"
                   style={[
                     s.seatTile,
@@ -121,9 +128,9 @@ export default function ManageSeats({ nav }: any) {
                     color={mainColor}
                     style={{ marginBottom: 2 }}
                   />
-                  <Text style={[s.seatLabel, { color: mainColor }]}>{s.label}</Text>
+                  <Text style={[s.seatLabel, { color: mainColor }]}>{sItem.label}</Text>
                   <Text style={[s.seatStatusText, { color: mainColor }]} numberOfLines={1}>
-                    {s.status}
+                    {sItem.status}
                   </Text>
                 </TouchableOpacity>
               );

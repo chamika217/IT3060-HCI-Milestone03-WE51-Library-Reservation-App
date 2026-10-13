@@ -10,13 +10,15 @@ import { AppThemeProvider, useAppTheme } from '@/contexts/ThemeContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// Inner layout reads from ThemeContext — must be inside AppThemeProvider
 function InnerLayout() {
   const { isDark } = useAppTheme();
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
   }, []);
+
+  const bg = isDark ? '#0D0F12' : '#FAFBFB';
+  const outerBg = isDark ? '#000000' : '#EAEFF5';
 
   const content = (
     <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
@@ -29,8 +31,8 @@ function InnerLayout() {
 
   if (Platform.OS === 'web') {
     return (
-      <View style={styles.webContainer}>
-        <View style={styles.mobileFrame}>
+      <View style={[styles.webContainer, { backgroundColor: outerBg }]}>
+        <View style={[styles.mobileFrame, { backgroundColor: bg }]}>
           {content}
         </View>
       </View>
@@ -66,7 +68,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
     height: '100%',
-    backgroundColor: '#FAFBFB',
     overflow: 'hidden',
     ...(Platform.OS === 'web'
       ? {
