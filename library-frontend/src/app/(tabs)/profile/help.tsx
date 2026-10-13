@@ -28,6 +28,7 @@ import {
 import { MOCK_FAQS, FaqItem } from '@/features/profile/mockData';
 import { ApiFaqFeedback } from '@/features/notifications/types';
 import { submitFaqFeedback, getFaqFeedback, deleteFaqFeedback, getAuthUserId } from '@/services/api';
+import { useScreenColors } from '@/hooks/useScreenColors';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -53,6 +54,7 @@ interface FaqAccordionProps {
 function FaqAccordion({ item, isOpen, onToggle, existingFeedback, onFeedbackChange }: FaqAccordionProps) {
   const [submitting, setSubmitting] = useState(false);
   const [thanks,     setThanks]     = useState(false);
+  const C = useScreenColors();
 
   // Derive current vote from server state
   const voted: 'yes' | 'no' | null = existingFeedback == null
@@ -116,8 +118,8 @@ function FaqAccordion({ item, isOpen, onToggle, existingFeedback, onFeedbackChan
               accessibilityRole="button"
               accessibilityLabel={voted === 'yes' ? 'Undo helpful vote' : 'Yes, this was helpful'}
             >
-              <IonIcon name="thumbs-up-outline" size={13} color={voted === 'yes' ? '#FAFBFB' : '#25B87A'} />
-              <Text style={[faqStyles.helpfulBtnText, { color: voted === 'yes' ? '#FAFBFB' : '#25B87A' }]}>
+              <IonIcon name="thumbs-up-outline" size={13} color={voted === 'yes' ? C.card : C.success} />
+              <Text style={[faqStyles.helpfulBtnText, { color: voted === 'yes' ? C.card : C.success }]}>
                 Yes
               </Text>
             </Pressable>
@@ -131,8 +133,8 @@ function FaqAccordion({ item, isOpen, onToggle, existingFeedback, onFeedbackChan
               accessibilityRole="button"
               accessibilityLabel={voted === 'no' ? 'Undo not-helpful vote' : 'No, this was not helpful'}
             >
-              <IonIcon name="thumbs-down-outline" size={13} color={voted === 'no' ? '#FAFBFB' : '#6C7886'} />
-              <Text style={[faqStyles.helpfulBtnText, { color: voted === 'no' ? '#FAFBFB' : '#6C7886' }]}>
+              <IonIcon name="thumbs-down-outline" size={13} color={voted === 'no' ? C.card : C.textSecondary} />
+              <Text style={[faqStyles.helpfulBtnText, { color: voted === 'no' ? C.card : C.textSecondary }]}>
                 No
               </Text>
             </Pressable>
