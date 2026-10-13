@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IonIcon } from './IonIcon';
+import { useScreenColors } from '@/hooks/useScreenColors';
 
 interface ScreenHeaderProps {
   title: string;
@@ -34,9 +35,10 @@ export function ScreenHeader({
   closeIcon = false,
 }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
+  const C = useScreenColors();
 
   return (
-    <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+    <View style={[styles.header, { paddingTop: insets.top + 12, backgroundColor: C.card, borderBottomColor: C.border }]}>
       {/* Left: back / close */}
       <Pressable
         onPress={onBack}
@@ -48,12 +50,12 @@ export function ScreenHeader({
         <IonIcon
           name={closeIcon ? 'close' : 'chevron-back'}
           size={24}
-          color="#1C283B"
+          color={C.text}
         />
       </Pressable>
 
       {/* Centre: title */}
-      <Text style={styles.title} numberOfLines={1}>
+      <Text style={[styles.title, { color: C.text }]} numberOfLines={1}>
         {title}
       </Text>
 

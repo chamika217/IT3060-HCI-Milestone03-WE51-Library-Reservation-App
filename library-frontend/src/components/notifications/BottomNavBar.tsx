@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, usePathname } from 'expo-router';
 import { IonIcon, IonIconName } from './IonIcon';
+import { useScreenColors } from '@/hooks/useScreenColors';
 
 interface NavTab {
   key: string;
@@ -46,6 +47,7 @@ interface BottomNavBarProps {
 export function BottomNavBar({ activeTab = 'alerts', unreadCount = 0 }: BottomNavBarProps) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const C = useScreenColors();
 
   // Derive active tab from pathname if not explicitly provided
   function isActive(tab: NavTab) {
@@ -54,10 +56,10 @@ export function BottomNavBar({ activeTab = 'alerts', unreadCount = 0 }: BottomNa
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: C.card, borderTopColor: C.border }]}>
       {TABS.map((tab) => {
         const active = isActive(tab);
-        const color = active ? '#2D7CE9' : '#6C7886';
+        const color = active ? C.primary : C.textSecondary;
 
         return (
           <Pressable
@@ -77,7 +79,7 @@ export function BottomNavBar({ activeTab = 'alerts', unreadCount = 0 }: BottomNa
               />
               {/* Unread badge on Alerts tab */}
               {tab.key === 'alerts' && unreadCount > 0 && (
-                <View style={styles.badge}>
+                <View style={[styles.badge, { borderColor: C.card }]}>
                   <Text style={styles.badgeText}>
                     {unreadCount > 99 ? '99+' : String(unreadCount)}
                   </Text>
@@ -85,7 +87,7 @@ export function BottomNavBar({ activeTab = 'alerts', unreadCount = 0 }: BottomNa
               )}
             </View>
             <Text style={[styles.label, { color }]}>{tab.label}</Text>
-            {active && <View style={styles.activeIndicator} />}
+            {active && <View style={[styles.activeIndicator, { backgroundColor: C.primary }]} />}
           </Pressable>
         );
       })}
