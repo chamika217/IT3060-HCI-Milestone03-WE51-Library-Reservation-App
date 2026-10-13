@@ -178,8 +178,6 @@ export const ALL_LIBRARY_SLOTS: LibrarySlotDef[] = [
   { id: 't-1230', startHour: 14, startMin: 0, endHour: 16, endMin: 0, timeRange: '02:00 PM – 04:00 PM', tagline: 'Midday Window • 2.0 hrs' },
   { id: 't-1430', startHour: 16, startMin: 0, endHour: 18, endMin: 0, timeRange: '04:00 PM – 06:00 PM', tagline: 'Afternoon Block • 2.0 hrs' },
   { id: 't-1630', startHour: 18, startMin: 0, endHour: 20, endMin: 0, timeRange: '06:00 PM – 08:00 PM', tagline: 'Evening Session • 2.0 hrs' },
-  { id: 't-1830', startHour: 20, startMin: 0, endHour: 22, endMin: 0, timeRange: '08:00 PM – 10:00 PM', tagline: 'Night Focus Block • 2.0 hrs' },
-  { id: 't-2030', startHour: 22, startMin: 0, endHour: 24, endMin: 0, timeRange: '10:00 PM – 12:00 AM', tagline: 'Late Night Session • 2.0 hrs' },
 ];
 
 export function getCalculatedTimeSlots(dateOption: 'today' | 'tomorrow'): TimeSlotOption[] {
