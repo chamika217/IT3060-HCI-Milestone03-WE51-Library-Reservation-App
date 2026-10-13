@@ -187,8 +187,13 @@ const sheet = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(28, 40, 59, 0.45)',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+    width: '100%',
   },
   container: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     backgroundColor: colors.card,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,

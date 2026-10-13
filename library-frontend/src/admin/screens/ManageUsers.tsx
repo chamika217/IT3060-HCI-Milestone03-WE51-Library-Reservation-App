@@ -49,7 +49,7 @@ export default function ManageUsers({ nav }: any) {
         <FlatList
           data={data}
           keyExtractor={(u: any) => u._id}
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
           ListEmptyComponent={<Empty text="No users found" icon="people-outline" />}
           renderItem={({ item: u }: any) => (
             <Card style={s.userCard}>

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, font, radius } from '../theme';
 import { Header, Card, Button, Loading, ErrorBox, SectionTitle, IconCircle } from '../components';
+import { notify, confirmAction } from '../dialog';
 import useLoad from '../useLoad';
 import api, { errMsg } from '../api';
 
@@ -24,25 +25,28 @@ export default function Reports({ nav }: any) {
     try {
       await api.post('/stats/reports', {});
       saved.reload();
-      Alert.alert('Saved', 'Report snapshot saved successfully.');
+      notify('Saved', 'Report snapshot saved successfully.');
     } catch (e) {
-      Alert.alert('Error', errMsg(e));
+      notify('Error', errMsg(e));
     }
   };
 
   const del = async (id: any) => {
+    const ok = await confirmAction('Delete Report', 'Delete this saved report snapshot?', 'Delete', true);
+    if (!ok) return;
     try {
       await api.delete(`/stats/reports/${id}`);
       saved.reload();
+      notify('Deleted', 'Report snapshot removed.');
     } catch (e) {
-      Alert.alert('Error', errMsg(e));
+      notify('Error', errMsg(e));
     }
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Header title="Reports & Statistics" subtitle="Analytics, occupancy & peak hours" onBack={nav.goBack} />
-      <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <Card style={s.summaryCard}>
           <View style={s.summaryTop}>
             <IconCircle icon="bar-chart" color={colors.primary} size={44} />

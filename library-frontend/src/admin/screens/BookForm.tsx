@@ -57,7 +57,7 @@ export default function BookForm({ nav, params }: any) {
         subtitle={edit ? 'Update book details in catalog' : 'Register a new book in catalog'}
         onBack={nav.goBack}
       />
-      <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <Card style={s.formCard}>
           <SectionTitle title="Book Details" style={{ marginTop: 0 }} />
 

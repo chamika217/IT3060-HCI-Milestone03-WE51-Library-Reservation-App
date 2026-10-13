@@ -39,7 +39,7 @@ export default function ManageCategories({ nav }: any) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Header title="Manage Categories" subtitle="Organize library genres and topics" onBack={nav.goBack} />
-      <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <Card style={s.inputCard}>
           <SectionTitle
             title={editing ? `Edit Category` : 'Add New Category'}
