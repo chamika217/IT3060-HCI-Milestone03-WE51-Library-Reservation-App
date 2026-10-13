@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-  Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CampusBreadcrumb } from '../components/CampusBreadcrumb';
-import { QrCheckInModal } from '../components/QrCheckInModal';
 import { ReadingRoomsHeader } from '../components/ReadingRoomsHeader';
 import { ReservationCard } from '../components/ReservationCard';
 import { SeatBottomNav, TabName } from '../components/SeatBottomNav';
@@ -53,28 +52,22 @@ function bookingToReservationItem(b: Booking): ReservationItem {
 // Screen
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MyBookingsScreen() {
-  const { getActiveBookings, cancelBooking, getPastBookings } = useBookingStore();
+  const { cancelBooking, getActiveBookings, getPastBookings } = useBookingStore();
 
   const [activeTabSegment, setActiveTabSegment] = useState<'active' | 'past'>('active');
   const [bottomTab, setBottomTab] = useState<TabName>('Bookings');
-  const [qrModalVisible, setQrModalVisible] = useState<boolean>(false);
-  const [selectedPassReservation, setSelectedPassReservation] =
-    useState<ReservationItem | null>(null);
+  const [cancelModalReservation, setCancelModalReservation] = useState<ReservationItem | null>(null);
 
   // ── Active tab data ───────────────────────────────────────────────────────
-  // Derived fresh on each render so expired slots disappear automatically.
-  const activeBookings = getActiveBookings();
   const reservations: ReservationItem[] = useMemo(
-    () => activeBookings.map(bookingToReservationItem),
-    [activeBookings]
+    () => getActiveBookings().map(bookingToReservationItem),
+    [getActiveBookings]
   );
 
   // ── Past tab data ─────────────────────────────────────────────────────────
   const pastBookings: Booking[] = useMemo(
     () => getPastBookings(),
-    // Re-derive when tab switches so expired slots show up immediately
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getPastBookings, activeTabSegment]
+    [getPastBookings]
   );
 
   const slotEndLabel = (slotId: string) =>
@@ -85,79 +78,60 @@ export default function MyBookingsScreen() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleChangeSeat = (reservation: ReservationItem) => {
-    Alert.alert(
-      'Change Seat Reservation',
-      `Select a new seat to replace ${reservation.seatNumber}. Your current booking will be cancelled automatically when you confirm the new one.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Select New Seat',
-          onPress: () =>
-            router.push({
-              pathname: '/seats/matrix',
-              params: {
-                // Pass the active booking's original room so the grid stays
-                // in the same room, and the booking ID so Confirm can replace it.
-                roomCode: reservation.roomCode,
-                roomName: reservation.roomName,
-                replacingBookingId: reservation._id,
-              },
-            }),
-        },
-      ]
-    );
+    router.push({
+      pathname: '/seats/matrix',
+      params: {
+        roomCode: reservation.roomCode,
+        roomName: reservation.roomName,
+        replacingBookingId: reservation._id,
+      },
+    });
   };
 
   const handleCancelBooking = (reservation: ReservationItem) => {
-    Alert.alert(
-      'Cancel Reservation?',
-      `Are you sure you want to cancel your booking for ${reservation.seatNumber}? This space will be released to other students.`,
-      [
-        { text: 'Keep Booking', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            // Attempt backend cancel (silent on failure)
-            try {
-              await fetch(`${BACKEND_CANCEL_URL}/${reservation._id}/cancel`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user: '650000000000000000000001' }),
-              });
-            } catch {
-              // Offline — continue anyway
-            }
-
-            cancelBooking(reservation._id);
-            Alert.alert(
-              'Booking Cancelled',
-              'Your reservation has been successfully cancelled.'
-            );
-          },
-        },
-      ]
-    );
+    setCancelModalReservation(reservation);
   };
 
-  const handleViewPass = (reservation: ReservationItem) => {
-    setSelectedPassReservation(reservation);
-    setQrModalVisible(true);
+  const confirmCancel = async (reservation: ReservationItem) => {
+    // 1. Remove from store immediately — seat becomes Available in the matrix
+    cancelBooking(reservation._id);
+    setCancelModalReservation(null);
+
+    // 2. Attempt backend sync (silent on failure)
+    try {
+      await fetch(`${BACKEND_CANCEL_URL}/${reservation._id}/cancel`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: '650000000000000000000001' }),
+      });
+    } catch {
+      // Offline — local state already updated
+    }
+  };
+
+  const handleViewPass = (reservation?: ReservationItem) => {
+    const target = reservation || reservations[0];
+    router.push({
+      pathname: '/seats/qrcheckinmodal',
+      params: {
+        seatNumber: target?.seatNumber ?? 'B-14',
+        roomName: target?.roomName ?? 'Individual Study Area',
+        roomCode: target?.roomCode ?? 'L2-NORTH',
+        timeRange: target?.timeRange ?? '02:30 PM – 04:30 PM',
+        dateLabel: target?.dateLabel ?? 'Today',
+        passCode: target?.passCode ?? '8841',
+      },
+    });
   };
 
   const handleTabPress = (tab: TabName) => {
     setBottomTab(tab);
     if (tab === 'Home') {
+      router.push('/home');
+    } else if (tab === 'Search') {
       router.push('/seats');
     }
   };
-
-  // QR modal falls back gracefully when there is no selected reservation
-  const qrSeat = selectedPassReservation?.seatNumber ?? '';
-  const qrRoom = selectedPassReservation?.roomName ?? '';
-  const qrTime = selectedPassReservation?.timeRange ?? '';
-  const qrDate = selectedPassReservation?.dateLabel ?? '';
-  const qrPass = selectedPassReservation?.passCode ?? '0000';
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -356,35 +330,52 @@ export default function MyBookingsScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky QR button — only when there are active reservations */}
-      {reservations.length > 0 && (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.passButton}
-            onPress={() => handleViewPass(reservations[0])}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.passButtonText}>View QR Check-In Pass</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* Sticky QR button — in the bottom of the screen */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.passButton}
+          onPress={() => handleViewPass(reservations[0])}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.passButtonText}>View QR Check-In Pass</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* QR Check-In Pass Modal */}
-      <QrCheckInModal
-        visible={qrModalVisible}
-        seatNumber={qrSeat}
-        roomName={qrRoom}
-        timeRange={qrTime}
-        dateLabel={qrDate}
-        passCode={qrPass}
-        token={`KSN-${qrSeat.replace(/Seat\s*/i, '')}-${qrPass}`}
-        pin={qrPass.padStart(4, '0')}
-        onClose={() => {
-          setQrModalVisible(false);
-          setSelectedPassReservation(null);
-        }}
-      />
+      {/* Cancel Confirmation Modal */}
+      {cancelModalReservation && (
+        <Modal transparent animationType="fade" visible={Boolean(cancelModalReservation)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.dialogCard}>
+              <View style={styles.dialogIconBadge}>
+                <Ionicons name="alert-circle-outline" size={28} color={Colors.error} />
+              </View>
+              <Text style={styles.dialogTitle}>Cancel Reservation?</Text>
+              <Text style={styles.dialogSubtitle}>
+                Are you sure you want to cancel your booking for{' '}
+                <Text style={styles.dialogHighlight}>{cancelModalReservation.seatNumber}</Text>?
+                This seat will be released back to the library pool.
+              </Text>
+              <View style={styles.dialogActions}>
+                <TouchableOpacity
+                  style={styles.dialogCancelBtn}
+                  onPress={() => setCancelModalReservation(null)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dialogCancelBtnText}>Keep Booking</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.dialogConfirmBtn}
+                  onPress={() => confirmCancel(cancelModalReservation)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dialogConfirmBtnText}>Yes, Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
 
       {/* Bottom Nav */}
       <SeatBottomNav activeTab={bottomTab} onTabPress={handleTabPress} />
@@ -688,6 +679,80 @@ const styles = StyleSheet.create({
   },
   passButtonText: {
     fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dialogCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    ...Shadows.card,
+  },
+  dialogIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.errorSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.textDark,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  dialogSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  dialogHighlight: {
+    fontWeight: '700',
+    color: Colors.textDark,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  dialogCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.neutralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogCancelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textDark,
+  },
+  dialogConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogConfirmBtnText: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },

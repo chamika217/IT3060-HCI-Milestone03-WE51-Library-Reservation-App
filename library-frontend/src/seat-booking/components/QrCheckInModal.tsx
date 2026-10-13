@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,16 +25,18 @@ import { useBookingStore } from '../store/bookingStore';
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface QrCheckInModalProps {
-  visible: boolean;
+  visible?: boolean;
   /** Seat identifier, e.g. "B-14" or "Seat B-14". */
   seatNumber?: string;
   roomName?: string;
+  roomCode?: string;
   timeRange?: string;
   dateLabel?: string;
   passCode?: string;
   token?: string;
   pin?: string;
-  onClose: () => void;
+  onClose?: () => void;
+  isScreen?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,44 +87,72 @@ function buildQrPayload(params: {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
-  visible,
+  visible = true,
   seatNumber: propSeat,
   roomName: propRoomName,
   timeRange: propTimeRange,
   dateLabel: propDateLabel,
+  passCode: propPassCode,
+  token: propToken,
+  pin: propPin,
   onClose,
+  isScreen = false,
 }) => {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    seatNumber?: string;
+    roomName?: string;
+    roomCode?: string;
+    timeRange?: string;
+    dateLabel?: string;
+    passCode?: string;
+    token?: string;
+    pin?: string;
+  }>();
+
+  const seatParam = propSeat || params.seatNumber;
+  const roomNameParam = propRoomName || params.roomName;
+  const timeRangeParam = propTimeRange || params.timeRange;
+  const dateLabelParam = propDateLabel || params.dateLabel;
+  const roomCodeParam = params.roomCode;
+  const passCodeParam = propPassCode || params.passCode;
+
   const [pinCopied, setPinCopied] = useState(false);
 
   const { getActiveBookings } = useBookingStore();
 
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      router.back();
+    }
+  };
+
   // ── Resolve booking data ──────────────────────────────────────────────────
-  // Prefer live booking from the store; fall back to props for cases where
-  // the modal is opened with static data (e.g. past bookings preview).
   const resolvedData = useMemo(() => {
     const activeBookings = getActiveBookings();
 
-    // Try to find the booking that matches the prop seat number
-    const cleanPropSeat = (propSeat ?? '').replace(/^Seat\s*/i, '');
+    // Try to find the booking that matches the prop or param seat number
+    const cleanPropSeat = (seatParam ?? '').replace(/^Seat\s*/i, '');
     const match =
       activeBookings.find(
         (b) =>
           b.seatNumber === cleanPropSeat ||
           b.seatNumber === `Seat ${cleanPropSeat}` ||
-          b.seatNumber === propSeat
+          b.seatNumber === seatParam
       ) ?? activeBookings[0]; // fall back to first active booking
 
     if (match) {
       const room = MOCK_ROOMS.find((r) => r.code === match.roomCode);
       const slot = ALL_LIBRARY_SLOTS.find((s) => s.id === match.slotId);
       const seatNum = match.seatNumber.replace(/^Seat\s*/i, '');
-      const pin = derivePinFromId(match.id);
+      const pinVal = propPin || params.pin || derivePinFromId(match.id);
       const date = match.dateOption === 'tomorrow' ? 'Tomorrow' : 'Today';
       const timeRange = slot?.timeRange ?? match.timeRange;
-      const roomName = room?.name ?? propRoomName ?? 'Study Area';
+      const roomName = room?.name ?? roomNameParam ?? 'Study Area';
       const roomCode = match.roomCode;
-      const token = `KSN-${seatNum}-${match.id.slice(-6).toUpperCase()}`;
+      const tokenVal = propToken || params.token || `KSN-${seatNum}-${match.id.slice(-6).toUpperCase()}`;
 
       return {
         bookingId: match.id,
@@ -130,27 +161,28 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
         roomCode,
         date,
         timeRange,
-        pin,
-        token,
+        pin: pinVal,
+        token: tokenVal,
         fromStore: true,
       };
     }
 
-    // No live booking — use props as-is (graceful fallback)
-    const fallbackSeat = (propSeat ?? 'B-17').replace(/^Seat\s*/i, '');
-    const fallbackPin = '0000';
+    // No live booking — use params or props
+    const fallbackSeat = (seatParam ?? 'B-14').replace(/^Seat\s*/i, '');
+    const fallbackPin = propPin || params.pin || (passCodeParam ? derivePinFromId(passCodeParam) : '8841');
+    const fallbackToken = propToken || params.token || `KSN-${fallbackSeat}-${passCodeParam || '8841'}`;
     return {
       bookingId: 'DEMO',
       seatNumber: fallbackSeat,
-      roomName: propRoomName ?? 'Individual Study Area',
-      roomCode: 'L2-NORTH',
-      date: propDateLabel ?? 'Today',
-      timeRange: propTimeRange ?? '02:30 PM – 04:30 PM',
+      roomName: roomNameParam ?? 'Individual Study Area',
+      roomCode: roomCodeParam ?? 'L2-NORTH',
+      date: dateLabelParam ?? 'Today',
+      timeRange: timeRangeParam ?? '02:30 PM – 04:30 PM',
       pin: fallbackPin,
-      token: `KSN-${fallbackSeat}-DEMO`,
+      token: fallbackToken,
       fromStore: false,
     };
-  }, [getActiveBookings, propSeat, propRoomName, propTimeRange, propDateLabel]);
+  }, [getActiveBookings, seatParam, roomNameParam, timeRangeParam, dateLabelParam, roomCodeParam, passCodeParam, propPin, propToken, params.pin, params.token]);
 
   const {
     bookingId,
@@ -174,42 +206,62 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleCopyPin = () => {
     setPinCopied(true);
-    Alert.alert('PIN Copied!', `Check-In PIN ${pin} copied to clipboard.`);
+    if (Platform.OS === 'web') {
+      window.alert(`PIN Copied!\n\nCheck-In PIN ${pin} copied to clipboard.`);
+    } else {
+      Alert.alert('PIN Copied!', `Check-In PIN ${pin} copied to clipboard.`);
+    }
     setTimeout(() => setPinCopied(false), 2000);
   };
 
   const handleTurnstileScan = () => {
-    Alert.alert(
-      'Turnstile Check-In Verified! ✅',
-      `Welcome to ${roomName}!\nTurnstile Gate #L2-N unlocked for ${cleanSeatLabel}.`
-    );
+    if (Platform.OS === 'web') {
+      window.alert(`Turnstile Check-In Verified! ✅\n\nWelcome to ${roomName}!\nTurnstile Gate #L2-N unlocked for ${cleanSeatLabel}.`);
+    } else {
+      Alert.alert(
+        'Turnstile Check-In Verified! ✅',
+        `Welcome to ${roomName}!\nTurnstile Gate #L2-N unlocked for ${cleanSeatLabel}.`
+      );
+    }
   };
 
   const handleReleaseExtend = () => {
+    const goToExtend = () => {
+      handleClose();
+      router.push({
+        pathname: '/seats/extend-reservation',
+        params: { seatNumber, roomName, timeRange },
+      });
+    };
+    const goToRelease = () => {
+      handleClose();
+      router.push({
+        pathname: '/seats/early-release',
+        params: { seatNumber, roomName, timeRange },
+      });
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${cleanSeatLabel} is active until ${timeRange.split('–')[1]?.trim() ?? 'end of slot'}.\n\nClick OK to Extend Seat, or Cancel to Release Early.`)) {
+        goToExtend();
+      } else {
+        goToRelease();
+      }
+      return;
+    }
+
     Alert.alert(
       'Seat Management',
       `${cleanSeatLabel} is active until ${timeRange.split('–')[1]?.trim() ?? 'end of slot'}.`,
       [
         {
           text: 'Extend Seat',
-          onPress: () => {
-            onClose();
-            router.push({
-              pathname: '/seats/extend-reservation',
-              params: { seatNumber, roomName, timeRange },
-            });
-          },
+          onPress: goToExtend,
         },
         {
           text: 'Release Early',
           style: 'destructive',
-          onPress: () => {
-            onClose();
-            router.push({
-              pathname: '/seats/early-release',
-              params: { seatNumber, roomName, timeRange },
-            });
-          },
+          onPress: goToRelease,
         },
         { text: 'Cancel', style: 'cancel' },
       ]
@@ -217,19 +269,18 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <ReadingRoomsHeader />
+  const content = (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <ReadingRoomsHeader />
 
-        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          <CampusBreadcrumb
-            campusName="VERIFICATION"
-            spacesCount="SCREEN 05"
-            title="Seat Check–in Pass"
-            subtitle="Scan your QR code at the entrance."
-            onBackPress={onClose}
-          />
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <CampusBreadcrumb
+          campusName="VERIFICATION"
+          spacesCount="SCREEN 05"
+          title="Seat Check–in Pass"
+          subtitle="Scan your QR code at the entrance."
+          onBackPress={handleClose}
+        />
 
           {/* Verified status bar */}
           <View style={styles.verifiedCard}>
@@ -355,6 +406,15 @@ export const QrCheckInModal: React.FC<QrCheckInModalProps> = ({
           </View>
         </ScrollView>
       </SafeAreaView>
+  );
+
+  if (isScreen) {
+    return content;
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
+      {content}
     </Modal>
   );
 };

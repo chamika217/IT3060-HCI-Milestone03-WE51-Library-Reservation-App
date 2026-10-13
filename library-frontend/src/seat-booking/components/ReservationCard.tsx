@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Colors, Shadows } from '../constants/designSystem';
@@ -7,9 +7,9 @@ import { ReservationItem } from '../types/seatBooking';
 
 interface ReservationCardProps {
   reservation: ReservationItem;
-  onChangeSeat?: (reservation: ReservationItem) => void;
-  onCancelBooking?: (reservation: ReservationItem) => void;
-  onViewPass?: (reservation: ReservationItem) => void;
+  onChangeSeat: (reservation: ReservationItem) => void;
+  onCancelBooking: (reservation: ReservationItem) => void;
+  onViewPass: (reservation: ReservationItem) => void;
 }
 
 export const ReservationCard: React.FC<ReservationCardProps> = ({
@@ -18,23 +18,35 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
   onCancelBooking,
   onViewPass,
 }) => {
+  // Bind handlers directly to this card's reservation so they are never stale
+  const handleChangeSeat = useCallback(() => {
+    onChangeSeat(reservation);
+  }, [onChangeSeat, reservation]);
+
+  const handleCancelBooking = useCallback(() => {
+    onCancelBooking(reservation);
+  }, [onCancelBooking, reservation]);
+
+  const handleViewPass = useCallback(() => {
+    onViewPass(reservation);
+  }, [onViewPass, reservation]);
+
   return (
     <View style={styles.cardContainer}>
-      {/* Status Banner Row */}
+      {/* Status Banner */}
       <View style={styles.statusRow}>
         <View style={styles.upcomingPill}>
           <View style={styles.greenDot} />
           <Text style={styles.upcomingPillText}>UPCOMING RESERVATION</Text>
         </View>
-
-        {reservation.startsInLabel && (
+        {reservation.startsInLabel ? (
           <View style={styles.startsInBadge}>
             <Text style={styles.startsInBadgeText}>{reservation.startsInLabel}</Text>
           </View>
-        )}
+        ) : null}
       </View>
 
-      {/* Seat Title & Room Level */}
+      {/* Seat Title */}
       <View style={styles.titleRow}>
         <View>
           <Text style={styles.seatTitle}>{reservation.seatNumber}</Text>
@@ -42,10 +54,9 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
             Level {reservation.roomLevel} {reservation.roomName}
           </Text>
         </View>
-
-        <TouchableOpacity style={styles.bookmarkButton} activeOpacity={0.7}>
+        <View style={styles.bookmarkButton}>
           <Ionicons name="bookmark-outline" size={18} color={Colors.textSecondary} />
-        </TouchableOpacity>
+        </View>
       </View>
 
       {/* Details Grid */}
@@ -57,23 +68,21 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
           </Text>
           <Text style={styles.detailSubValue}>{reservation.durationLabel}</Text>
         </View>
-
         <View style={styles.detailCol}>
           <Text style={styles.detailLabel}>AMENITIES</Text>
           <Text style={styles.detailValue}>{reservation.amenitiesLabel}</Text>
         </View>
       </View>
 
-      {/* Fast Gate Check-In Pass Box */}
+      {/* QR Pass Tap Area */}
       <TouchableOpacity
         style={styles.fastGateBox}
-        onPress={() => onViewPass?.(reservation)}
+        onPress={handleViewPass}
         activeOpacity={0.8}
       >
         <View style={styles.qrIconBadge}>
           <Ionicons name="qr-code-outline" size={20} color={Colors.primary} />
         </View>
-
         <View style={styles.fastGateInfo}>
           <View style={styles.passHeaderRow}>
             <Text style={styles.fastGateTitle}>Fast Gate Check-In</Text>
@@ -87,12 +96,13 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
         </View>
       </TouchableOpacity>
 
-      {/* Action Buttons Row */}
+      {/* Action Buttons */}
       <View style={styles.actionsRow}>
         <TouchableOpacity
           style={styles.changeSeatButton}
-          onPress={() => onChangeSeat?.(reservation)}
+          onPress={handleChangeSeat}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="swap-horizontal-outline" size={15} color={Colors.primary} />
           <Text style={styles.changeSeatText}>Change Seat</Text>
@@ -100,8 +110,9 @@ export const ReservationCard: React.FC<ReservationCardProps> = ({
 
         <TouchableOpacity
           style={styles.cancelButton}
-          onPress={() => onCancelBooking?.(reservation)}
+          onPress={handleCancelBooking}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="close-circle-outline" size={15} color={Colors.error} />
           <Text style={styles.cancelText}>Cancel Booking</Text>
@@ -270,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 10,
     backgroundColor: Colors.card,
     borderWidth: 1,
@@ -287,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 10,
     backgroundColor: Colors.errorSoft,
     borderWidth: 1,
