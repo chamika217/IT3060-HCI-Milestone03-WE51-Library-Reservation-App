@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('dotenv').config({ path: '.env.local', override: true, quiet: true });
 const mongoose = require('mongoose');
 mongoose.set('autoIndex', false);
 

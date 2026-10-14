@@ -12,7 +12,10 @@ test('catalogue has 20 unique detailed books and never exposes reservations', ()
   assert.equal(publicBook({ ...seed[0], _id: '1', reservations: [{ userId: 'private' }] }).reservations, undefined);
 });
 test('pickup validation rejects invalid dates, past dates and invalid windows', () => {
-  assert.ok(validPickup(today(), '9-11 AM'));
+  const tomorrow = new Date(Date.parse(today() + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+  assert.ok(validPickup(tomorrow, '9-11 AM'));
+  assert.ok(validPickup(today(), '9-11 AM', new Date(`${today()}T10:59:00+05:30`)));
+  assert.equal(validPickup(today(), '9-11 AM', new Date(`${today()}T11:00:00+05:30`)), false);
   assert.equal(validPickup('2026-02-30', '9-11 AM'), false);
   assert.equal(validPickup('2000-01-01', '9-11 AM'), false);
   assert.equal(validPickup(today(), 'midnight'), false);
@@ -26,7 +29,8 @@ test('reservation atomically checks stock and user, and reports conflicts', asyn
   });
   t.mock.method(Book.collection, 'findOne', async () => ({ copies: 0, reservations: [] }));
   const res = { status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
-  await controller.create({ userId: 'reader-a', body: { bookId: '6', pickupDate: today(), pickupWindow: '9-11 AM' } }, res);
+  const tomorrow = new Date(Date.parse(today() + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+  await controller.create({ userId: 'reader-a', body: { bookId: '6', pickupDate: tomorrow, pickupWindow: '9-11 AM' } }, res);
   assert.equal(res.code, 409);
   assert.deepEqual(captured.filter.copies, { $gt: 0 });
   assert.deepEqual(captured.filter['reservations.userId'], { $ne: 'reader-a' });

@@ -1,4 +1,7 @@
 require('dotenv').config();
+// Local overrides are intentionally ignored by Git, so developers can switch
+// databases without altering shared Atlas credentials in .env.
+require('dotenv').config({ path: '.env.local', override: true, quiet: true });
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');

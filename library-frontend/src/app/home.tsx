@@ -84,11 +84,18 @@ export default function Home() {
         </Card>
       )}
 
-      <Card>
-        <View style={u.between}><Icon name="help-circle" color={c.warning} /><Badge tone="info">LIBRARY SUPPORT</Badge></View>
-        <Text style={u.heading}>Need a hand?</Text>
-        <Text style={u.body}>Visit the circulation desk for help with borrowing, account access or locating a title.</Text>
-      </Card>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Contact Library Staff"
+        onPress={() => router.push(user ? '/profile/contact' : '/login')}
+        style={({ pressed }) => [pressed && { opacity: 0.82 }]}
+      >
+        <Card>
+          <View style={u.between}><Icon name="help-circle" color={c.warning} /><Badge tone="info">LIBRARY SUPPORT</Badge></View>
+          <Text style={u.heading}>Need a hand?</Text>
+          <Text style={u.body}>Contact library staff for help with borrowing, account access or locating a title.</Text>
+        </Card>
+      </Pressable>
     </Screen>
   );
 }

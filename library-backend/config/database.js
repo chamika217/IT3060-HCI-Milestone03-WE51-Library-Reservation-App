@@ -60,10 +60,11 @@ module.exports = async function connectDatabase() {
 
   // Skip custom DNS resolution — it fails on campus SSL proxy.
   // Connect directly with tlsInsecure so Mongoose handles SRV internally.
-  await mongoose.connect(process.env.MONGODB_URI, {
+  const uri = process.env.MONGODB_URI;
+  const isLocalMongo = /^mongodb:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\//i.test(uri);
+  await mongoose.connect(uri, {
     serverSelectionTimeoutMS: 20000,
-    tls: true,
-    tlsInsecure: true, // dev only — disable cert verification (campus/university proxy)
+    ...(isLocalMongo ? {} : { tls: true }),
     ...(process.env.MONGODB_DB ? { dbName: process.env.MONGODB_DB } : {}),
   });
 };

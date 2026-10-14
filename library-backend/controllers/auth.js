@@ -92,7 +92,10 @@ async function getGoogleProfile(credential) {
   let payload;
   try {
     payload = await verifyGoogleIdToken(credential, clientId);
-  } catch {
+  } catch (error) {
+    // Keep the client response generic, but expose the actionable verification
+    // reason in the development server console. Never log the credential.
+    console.error('Google ID token verification failed:', error.message);
     throw Object.assign(new Error('Google could not verify this sign-in. Please try again.'), { status: 401 });
   }
   const email = payload?.email?.toLowerCase();
