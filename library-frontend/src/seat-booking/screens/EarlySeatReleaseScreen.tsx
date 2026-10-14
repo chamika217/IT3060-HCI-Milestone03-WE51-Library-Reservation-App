@@ -48,7 +48,7 @@ export default function EarlySeatReleaseScreen() {
     timeRange?: string;
   }>();
 
-  const { getActiveBookings, getBookingEndMinutes, markCompleted } = useBookingStore();
+  const { getActiveBookings, getBookingEndMinutes, cancelBooking } = useBookingStore();
 
   // ── Resolve booking ───────────────────────────────────────────────────────
   const paramSeat = (params.seatNumber ?? '').replace(/^Seat\s*/i, '');
@@ -127,8 +127,9 @@ export default function EarlySeatReleaseScreen() {
           style: 'destructive',
           onPress: () => {
             if (activeBooking) {
-              // Move to Past History + free the seat in the matrix
-              markCompleted(activeBooking.id);
+              // Cancel the booking — removes it from active list and
+              // frees the seat back to Available in the seat matrix
+              cancelBooking(activeBooking.id);
             }
             Alert.alert(
               'Seat Released ✅',
